@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package pool.v1;
+
+enum PoolMediaType {
+    IMAGE = 0;
+}
+
+message PoolFileInfo {
+    string file_id = 1;
+    string file_name = 2;
+    uint64 total_size = 3;
+    string origin_node_id = 4;
+}
+
+message PoolFileSeeders {
+    PoolFileInfo file_info = 1;
+    repeated string seeder_node_ids = 2;
+}
+
+message PoolImageData {
+    uint32 width = 1;
+    uint32 height = 2;
+    string preview_image_base64 = 3;
+}
+
+message PoolChunkRange {
+    uint64 start = 1; // inclusive
+    uint64 end = 2; // inclusive
+}
+
+message PoolMessage {
+
+    enum Type {
+        NODE_INFO = 0;
+        TEXT = 1;
+        FILE_OFFER = 2;
+        MEDIA_OFFER = 3;
+        FILE_REQUEST = 4;
+        RETRACT_FILE_OFFER = 5;
+        RETRACT_FILE_REQUEST = 6;
+    }
+
+    string msg_id = 1;
+    Type type = 2;
+    string user_id = 3;
+    uint64 created = 4;
+    oneof data {
+        NodeInfoData node_info_data = 5;
+        TextData text_data = 6;
+        PoolFileInfo file_offer_data = 7;
+        MediaOfferData media_offer_data = 8;
+        FileRequestData file_request_data = 9;
+        RetractFileOfferData retract_file_offer_data = 10;
+        RetractFileRequestData retract_file_request_data = 11;
+    }
+
+    message NodeInfoData {
+        repeated PoolFileInfo file_offers = 1; // append only
+    }
+
+    message TextData {
+        string text = 1;
+    }
+
+    message MediaOfferData {
+        PoolFileInfo file_info = 1;
+        PoolMediaType media_type = 2;
+        oneof media_data {
+            PoolImageData image_data = 3;
+        }
+    }
+
+    message FileRequestData {
+        string file_id = 1;
+        repeated PoolChunkRange requested_chunks = 2;
+        repeated PoolChunkRange promised_chunks = 3;
+        bool request_from_origin = 4;
+    }
+
+    message RetractFileOfferData {
+        string file_id = 1;
+    }
+
+    message RetractFileRequestData {
+        string file_id = 1;
+    }
+
+}
+
+message PoolDirectMessage {
+        
+    enum DirectType {
+        LATEST_REQUEST = 0;
+        LATEST_REPLY = 1;
+    }
+
+    DirectType type = 1;
+    oneof data {
+        LatestReplyData latest_reply_data = 2;
+    }
+
+    message LatestReplyData {
+        repeated PoolMessage latest_messages = 1;
+        repeated PoolFileSeeders file_seeders = 2;
+    }
+
+}
+
+message PoolMessagePackageSourceInfo {
+    string node_id = 1;
+    repeated uint32 path = 2; 
+}
+
+message PoolMessagePackageDestinationInfo {
+    string node_id = 1;
+}
+
+message PoolChunkMessage {
+    string file_id = 1;
+    uint64 chunk_number = 2;
+    bytes chunk = 3;
+}
+
+message PoolMessagePackage {
+    PoolMessagePackageSourceInfo src = 1;
+    repeated PoolMessagePackageDestinationInfo dests = 2;
+    optional uint32 partner_int_path = 3;
+    optional PoolMessage msg = 4;
+    optional PoolDirectMessage direct_msg = 5;
+    optional PoolChunkMessage chunk_msg = 6;
+}
