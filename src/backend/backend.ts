@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api";
 import EventEmitter from "events";
-import { AddDownloadAction, ClearPoolAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
+import { AddDownloadAction, ClearPoolAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
 import { poolAction } from "../store/slices/pool.slice";
 import { store } from "../store/store";
-import { PoolConnectionState } from "../types/pool.model";
+import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
 import { PoolFileInfo } from "../types/pool.v1";
 import { open } from '@tauri-apps/api/dialog';
 
@@ -34,6 +34,7 @@ export class BackendCommands {
     disconnectFromPool(poolID: string) {
         let key = this.getPoolKey(poolID);
         if (!key) return;
+
         this.poolKeyMap.delete(poolID);
 
         store.dispatch(poolAction.clearPool({
@@ -48,6 +49,9 @@ export class BackendCommands {
     }
 
     async addFileOffer(poolID: string) {
+        let key = this.getPoolKey(poolID);
+        if (!key) return;
+
         let file_path = await open({
             multiple: false,
             directory: false,
@@ -62,6 +66,9 @@ export class BackendCommands {
     }
 
     async addImageOffer(poolID: string) {
+        let key = this.getPoolKey(poolID);
+        if (!key) return;
+
         let file_path = await open({
             multiple: false,
             directory: false,
@@ -99,10 +106,24 @@ export class BackendCommands {
     }
 
     retractFileOffer(poolID: string, fileID: string) {
+        let key = this.getPoolKey(poolID);
+        if (!key) return;
+
         invoke('retract_file_offer', { pool_id: poolID, file_id: fileID });
     }
 
-    removeFileDownload(poolID: string, fileID: string) {
-        invoke('remove_file_download', { pool_id: poolID, file_id: fileID });
+    removeFileDownload(poolID: string, fileDownload: PoolFileDownload) {
+        let key = this.getPoolKey(poolID);
+        if (!key) return;
+
+        if (fileDownload.status == DownloadProgressStatus.DOWNLOADING) {
+            invoke('remove_file_download', { pool_id: poolID, file_id: fileDownload.fileInfo.fileId });
+        } else {
+            let removeDownloadAction: RemoveDownloadAction = {
+                key,
+                fileID: fileDownload.fileInfo.fileId,
+            };
+            store.dispatch(poolAction.removeDownload(removeDownloadAction));
+        }
     }
 }

@@ -185,30 +185,34 @@ function DownloadQueue({ poolID, downloadQueue }: { poolID: string, downloadQueu
         });
     }, []);
 
+    const removeFileDownload = (fileDownload: PoolFileDownload) => {
+        Backend.removeFileDownload(poolID, fileDownload);
+    }
+
     return (
         <div className="display-downloading-files-container">
             {
-                downloadQueue.map((fileOffer) => (
+                downloadQueue.map((fileDownload) => (
                     <div
                         className="display-cancel-button-container display-downloading-file-container"
-                        onClick={() => Backend.removeFileDownload(poolID, fileOffer.fileInfo.fileId)}
-                        key={fileOffer.fileInfo!.fileId}>
+                        onClick={() => removeFileDownload(fileDownload)}
+                        key={fileDownload.fileInfo!.fileId}>
                         <div className="display-downloading-file display-cancel-button-child">
                             <div className="display-downloading-file-progress">
                                 <CircularProgressbar
-                                    value={fileOffer.progress || 0}
+                                    value={fileDownload.progress || 0}
                                     strokeWidth={15}
                                     styles={{
                                         path: {
-                                            stroke: `rgb(${getRGBFromDownloadProgressStatus(fileOffer.status)})`,
+                                            stroke: `rgb(${getRGBFromDownloadProgressStatus(fileDownload.status)})`,
                                         },
                                         trail: {
-                                            stroke: `rgba(${getRGBFromDownloadProgressStatus(fileOffer.status)}, 0.1)`
+                                            stroke: `rgba(${getRGBFromDownloadProgressStatus(fileDownload.status)}, 0.1)`
                                         }
                                     }} />
                             </div>
                             <div className="display-downloading-file-name">
-                                {fileOffer.fileInfo!.fileName}
+                                {fileDownload.fileInfo!.fileName}
                             </div>
                         </div>
                         <img className="display-cancel-button-icon" src={CancelIcon} />
