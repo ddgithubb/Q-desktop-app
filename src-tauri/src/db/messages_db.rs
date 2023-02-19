@@ -1,40 +1,57 @@
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 
 use parking_lot::Mutex;
 
-use crate::{poolpb::PoolMessage, config::LATEST_MESSAGES_SIZE};
+use crate::{poolpb::PoolMessage, config::LATEST_MESSAGES_SIZE, events::{append_pool_message_event, init_pool_messages_event}};
 
 pub struct MessagesDB {
-    internal: Mutex<MessagesDBInternal>,
+    pool_messages: Mutex<HashMap<String, MessagesDBInternal>>, // pool_id -> internal
 }
 
 impl MessagesDB {
     pub fn init() -> Self {
         MessagesDB {
-            internal: Mutex::new(MessagesDBInternal::init()),
+            pool_messages: Mutex::new(HashMap::new()),
         }
     }
 
-    pub fn latest_messages(&self) -> Vec<PoolMessage> {
-        let internal = self.internal.lock();
-        internal.latest_messages()
+    pub fn latest_messages(&self, pool_id: &String) -> Vec<PoolMessage> {
+        let pool_messages = self.pool_messages.lock();
+        if let Some(internal) = pool_messages.get(pool_id) {
+            return internal.latest_messages()
+        }
+        Vec::new()
     }
 
     // Not necessarily latest?
-    pub fn add_message(&self, msg: PoolMessage) {
-        let mut internal = self.internal.lock();
-        internal.add_latest_message(msg);
+    pub fn add_message(&self, pool_id: &String, msg: PoolMessage) {
+        {
+            let mut pool_messages = self.pool_messages.lock();
+            if !pool_messages.contains_key(pool_id) {
+                pool_messages.insert(pool_id.clone(), MessagesDBInternal::init());
+            }
 
-        // fire event
-        todo!()
+            if let Some(internal) = pool_messages.get_mut(pool_id) {
+                internal.add_latest_message(msg.clone());
+            }
+        }
+
+        append_pool_message_event(pool_id, msg);
     }
 
-    pub fn add_latest_messages(&self, msgs: Vec<PoolMessage>) {
-        let mut internal = self.internal.lock();
-        internal.add_latest_messages(msgs);
+    pub fn add_latest_messages(&self, pool_id: &String, msgs: Vec<PoolMessage>) {
+        {
+            let mut pool_messages = self.pool_messages.lock();
+            if !pool_messages.contains_key(pool_id) {
+                pool_messages.insert(pool_id.clone(), MessagesDBInternal::init());
+            }
 
-        // fire event
-        todo!()
+            if let Some(internal) = pool_messages.get_mut(pool_id) {
+                internal.add_latest_messages(msgs.clone());
+            }
+        }
+
+        init_pool_messages_event(pool_id, msgs);
     }
 
 }

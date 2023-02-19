@@ -9,25 +9,26 @@ use super::store_manager::StoreManager;
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserStore {
-    pub(super) user_id: String,
+    pub(super) user_info: PoolUserInfo,
     pub(super) device: PoolDeviceInfo,
     pub(super) pools: HashMap<String, PoolInfo>, // pool_id -> pool_info
 }
 
 pub struct BasicUserInfo {
     pub user_id: String,
+    pub display_name: String,
     pub device: PoolDeviceInfo,
 }
 
 impl StoreManager {
-    pub fn init_profile(&self, user_id: String, device: PoolDeviceInfo) {
+    pub fn new_profile(&self, user_info: PoolUserInfo, device: PoolDeviceInfo) {
         let mut user_store = self.user_store.lock();
-        user_store.user_id = user_id;
+        user_store.user_info = user_info;
         user_store.device = device;
         user_store.update();
     }
 
-    pub fn init_pool(&self, pool_id: String, pool_info: PoolInfo) {
+    pub fn update_pool(&self, pool_id: String, pool_info: PoolInfo) {
         let mut user_store = self.user_store.lock();
         user_store.pools.insert(pool_id, pool_info);
         user_store.update();
@@ -64,13 +65,19 @@ impl StoreManager {
     pub fn user_info(&self) -> BasicUserInfo {
         let user_store = self.user_store.lock();
         BasicUserInfo {
-            user_id: user_store.user_id.clone(),
+            user_id: user_store.user_info.user_id.clone(),
+            display_name: user_store.user_info.display_name.clone(),
             device: user_store.device.clone(),
         }
     }
 
-    pub fn _device_name(&self) -> String {
+    pub fn _set_display_name(&self, display_name: String) {
+        let mut user_store = self.user_store.lock();
+        user_store.user_info.display_name = display_name;
+    }
+
+    pub fn _display_name(&self) -> String {
         let user_store = self.user_store.lock();
-        user_store.device.device_name.clone()
+        user_store.user_info.display_name.clone()
     }
 }

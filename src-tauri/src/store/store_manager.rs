@@ -1,12 +1,12 @@
-use std::{fs::{create_dir}, path::PathBuf};
+use std::{fs::create_dir, path::PathBuf};
 
 use log::info;
 use parking_lot::Mutex;
-use tauri::api::path::{local_data_dir};
 
-use super::{user_store::{UserStore}, file_store::FileStore, store::Store};
+use crate::GLOBAL_APP_HANDLE;
 
-pub const APP_DATA_NAME: &'static str = "PoolNet";
+use super::{file_store::FileStore, store::Store, user_store::UserStore};
+
 pub const USER_STORE_NAME: &'static str = "user";
 pub const FILE_STORE_NAME: &'static str = "file";
 
@@ -24,7 +24,7 @@ impl StoreManager {
             // only for corrupted data files, not for errors like this
             panic!()
         }
-        
+
         let user_store: Store<UserStore> = Store::new(USER_STORE_NAME.to_string()).unwrap();
         let mut file_store: Store<FileStore> = Store::new(FILE_STORE_NAME.to_string()).unwrap();
 
@@ -36,13 +36,10 @@ impl StoreManager {
         }
     }
 
-    pub fn app_data_local_dir() -> Option<PathBuf> {
-        match local_data_dir() {
-            Some(mut path) => {
-                path.push(APP_DATA_NAME);
-                Some(path)
-            }
-            None => return None,
+    pub fn app_data_dir() -> Option<PathBuf> {
+        match &*GLOBAL_APP_HANDLE.load() {
+            Some(app_handle) => app_handle.path_resolver().app_data_dir(),
+            None => None,
         }
     }
 
@@ -57,7 +54,7 @@ impl StoreManager {
     // }
 
     fn create_app_data_dir() -> bool {
-        if let Some(path) = Self::app_data_local_dir() {
+        if let Some(path) = Self::app_data_dir() {
             let _ = create_dir(path.clone());
             if path.exists() {
                 return true;

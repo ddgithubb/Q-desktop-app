@@ -65,7 +65,7 @@ impl<'a, T: Default + Serialize + for<'de> Deserialize<'de>> Store<T> {
     }
 
     fn open_store_file(name: &String, is_temp: bool) -> Option<(File, PathBuf)> {
-        let mut path = match StoreManager::app_data_local_dir() {
+        let mut path = match StoreManager::app_data_dir() {
             Some(path) => path,
             None => return None,
         };

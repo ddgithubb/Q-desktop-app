@@ -16,29 +16,31 @@ use parking_lot::Mutex;
 
 use crate::{
     config::{
-        MAX_SEND_CHUNK_BUFFER_LENGTH, MAX_TEMP_FILE_SIZE, MESSAGE_ID_LENGTH,
+        FILE_ID_LENGTH, MAX_SEND_CHUNK_BUFFER_LENGTH, MAX_TEMP_FILE_SIZE, MESSAGE_ID_LENGTH,
         PREVIEW_IMAGE_DIMENSION,
     },
+    events::complete_pool_file_download_event,
     poolpb::{
         pool_direct_message::{
             Data as PoolDirectMessageData, DirectType as PoolDirectMessageType, LatestReplyData,
         },
         pool_message::{
             media_offer_data::MediaData, Data as PoolMessageData, FileRequestData, MediaOfferData,
-            NodeInfoData, RetractFileOfferData, TextData, Type as PoolMessageType,
+            NodeInfoData, RetractFileOfferData, RetractFileRequestData, TextData,
+            Type as PoolMessageType,
         },
         PoolChunkMessage, PoolDirectMessage, PoolFileInfo, PoolImageData, PoolMediaType,
         PoolMessage, PoolMessagePackage, PoolMessagePackageDestinationInfo,
         PoolMessagePackageSourceInfo,
     },
-    store::file_store::{FileStore},
+    store::file_store::FileStore,
     MESSAGES_DB, STORE_MANAGER,
 };
 
 use super::{
     cache_manager::CacheManager,
     chunk::{
-        chunk_ranges::{ChunkRanges, ChunkRangesUtil},
+        chunk_ranges::{create_full_chunk_range, ChunkRanges, ChunkRangesUtil},
         chunk_util::chunk_number_to_partner_int_path,
     },
     file_manager::FileManager,
@@ -130,7 +132,7 @@ impl PoolNet {
 
     pub(super) async fn send_latest_reply(&self, target_node_id: &String) {
         let latest_reply_data = LatestReplyData {
-            latest_messages: MESSAGES_DB.latest_messages(),
+            latest_messages: MESSAGES_DB.latest_messages(&self.pool_state.pool_id),
             file_seeders: self.pool_state.collect_file_seeders(),
         };
 
@@ -191,18 +193,14 @@ impl PoolNet {
         .await
     }
 
-    pub(super) async fn send_file_offer(&self, path: String, file_offer: PoolFileInfo) {
-        let file_path = match STORE_MANAGER.add_file_offer(
-            &self.pool_state.pool_id,
-            path,
-            file_offer.clone(),
-        ) {
-            Some(file_path) => file_path,
-            None => return,
-        };
+    pub(super) async fn send_file_offer(&self, file_offer: PoolFileInfo, path: PathBuf) {
+        if !STORE_MANAGER.add_file_offer(&self.pool_state.pool_id, file_offer.clone(), path.clone())
+        {
+            return;
+        }
 
         self.file_manager
-            .add_chunk_sender(file_offer.clone(), file_path, false);
+            .add_chunk_sender(file_offer.clone(), path, false);
 
         self.send_message(
             PoolMessageType::FileOffer,
@@ -213,9 +211,9 @@ impl PoolNet {
         .await;
     }
 
-    pub(super) async fn send_image_offer(&self, path: String, file_offer: PoolFileInfo) {
+    pub(super) async fn send_image_offer(&self, file_offer: PoolFileInfo, path: PathBuf) {
         if file_offer.total_size > MAX_TEMP_FILE_SIZE {
-            self.send_file_offer(path, file_offer).await;
+            self.send_file_offer(file_offer, path).await;
             return;
         }
 
@@ -254,17 +252,13 @@ impl PoolNet {
             base64::engine::general_purpose::STANDARD.encode(preview_img_buf)
         );
 
-        let media_path = match STORE_MANAGER.add_file_offer(
-            &self.pool_state.pool_id,
-            path,
-            file_offer.clone(),
-        ) {
-            Some(media_path) => media_path,
-            None => return,
-        };
+        if !STORE_MANAGER.add_file_offer(&self.pool_state.pool_id, file_offer.clone(), path.clone())
+        {
+            return;
+        }
 
         self.file_manager
-            .add_chunk_sender(file_offer.clone(), media_path, true);
+            .add_chunk_sender(file_offer.clone(), path, true);
 
         let file_id = file_offer.file_id.clone();
 
@@ -289,30 +283,31 @@ impl PoolNet {
         self.file_manager.broadcast_file(file_id);
     }
 
-    pub(super) async fn download_file(&self, dir_path: String, file_info: PoolFileInfo) -> bool {
+    pub(super) async fn download_file(&self, file_info: PoolFileInfo, mut dir_path: PathBuf) {
         if let Some(existing_path) = STORE_MANAGER.check_existing_file(&file_info.file_id) {
+            let pool_id = self.pool_state.pool_id.clone();
             tokio::spawn(async move {
-                let mut path = PathBuf::from(dir_path);
-                FileStore::create_valid_file_path(&mut path, &file_info.file_name);
-                let success = tokio::fs::copy(existing_path, path).await.is_ok();
+                FileStore::create_valid_file_path(&mut dir_path, &file_info.file_name);
+                let success = tokio::fs::copy(existing_path, dir_path).await.is_ok();
 
-                // fire complete with success
-                todo!()
+                complete_pool_file_download_event(&pool_id, file_info.file_id, success);
             });
-            // notify copy?
-            return true;
+            return;
         }
 
         if !self.pool_state.is_available_file(&file_info.file_id) {
-            return false;
+            return;
         }
 
-        match self
+        let file_id = file_info.file_id.clone();
+        let full_chunk_range = create_full_chunk_range(file_info.total_size);
+
+        if let Ok(request_node_id) = self
             .file_manager
-            .init_file_download(file_info, Some(PathBuf::from(dir_path)))
+            .init_file_download(file_info, Some(dir_path))
         {
-            Ok(true) => true,
-            _ => false,
+            self.send_file_request(file_id, request_node_id, full_chunk_range, false)
+                .await;
         }
     }
 
@@ -341,21 +336,38 @@ impl PoolNet {
         }
     }
 
-    pub(super) async fn send_retract_file_offer(&self, file_id: &String) {
-        if !STORE_MANAGER.remove_file_offer(file_id) {
+    pub(super) async fn send_retract_file_offer(&self, file_id: String) {
+        if !STORE_MANAGER.remove_file_offer(&file_id) {
             return;
         }
 
-        self.file_manager.remove_chunk_sender(file_id);
+        self.file_manager.remove_chunk_sender(&file_id);
 
         self.send_message(
             PoolMessageType::RetractFileOffer,
             Some(PoolMessageData::RetractFileOfferData(
-                RetractFileOfferData {
-                    file_id: file_id.clone(),
-                },
+                RetractFileOfferData { file_id },
             )),
             None,
+            None,
+        )
+        .await;
+    }
+
+    pub(super) async fn send_retract_file_request(&self, file_id: String) {
+        let requested_node_id = match self.file_manager.download_requested_node_id(&file_id) {
+            Some(requested_node_id) => requested_node_id,
+            None => return,
+        };
+
+        self.file_manager.complete_file_download(&file_id, false);
+
+        self.send_message(
+            PoolMessageType::RetractFileRequest,
+            Some(PoolMessageData::RetractFileRequestData(
+                RetractFileRequestData { file_id },
+            )),
+            Some(vec![requested_node_id]),
             None,
         )
         .await;
@@ -411,7 +423,7 @@ impl PoolNet {
     }
 
     fn add_message(&self, msg: PoolMessage) {
-        MESSAGES_DB.add_message(msg);
+        MESSAGES_DB.add_message(&self.pool_state.pool_id, msg);
     }
 
     fn add_missed_message(&self, msg_pkg_bundle: &MessagePackageBundle) {
@@ -436,10 +448,11 @@ impl PoolNet {
             }
         }
 
-        MESSAGES_DB.add_latest_messages(latest_reply_data.latest_messages);
+        MESSAGES_DB
+            .add_latest_messages(&self.pool_state.pool_id, latest_reply_data.latest_messages);
 
         self.pool_state
-            .add_file_seeders(latest_reply_data.file_seeders);
+            .init_file_seeders(latest_reply_data.file_seeders);
     }
 
     fn update_node_info(&self, target_node_id: &String, node_info_data: NodeInfoData) {
@@ -665,7 +678,7 @@ impl PoolNet {
 
                     let is_original = src_node_id == file_info.origin_node_id;
 
-                    self.pool_state.add_file_seeder(&src_node_id, &file_info);
+                    self.pool_state.add_file_offer(&src_node_id, &file_info);
 
                     if is_original {
                         self.add_message(msg);
@@ -699,7 +712,7 @@ impl PoolNet {
                                     .init_file_download(file_info.clone(), None);
                             }
 
-                            self.pool_state.add_file_seeder(&src_node_id, file_info);
+                            self.pool_state.add_file_offer(&src_node_id, file_info);
                             self.add_message(msg);
                         }
                     }
@@ -713,7 +726,7 @@ impl PoolNet {
                     };
 
                     self.pool_state
-                        .remove_file_seeder(&src_node_id, &retract_file_offer_data.file_id);
+                        .remove_file_offer(&src_node_id, &retract_file_offer_data.file_id);
                 }
                 _ => return,
             }
@@ -752,5 +765,32 @@ impl PoolNet {
             chunk_msg: None,
             direct_msg: None,
         }
+    }
+
+    pub(super) fn generate_file_offer(path: PathBuf, node_id: String) -> Option<PoolFileInfo> {
+        if let Ok(metadata) = path.metadata() {
+            if !metadata.is_file() {
+                return None;
+            }
+
+            let file_name = match path.file_name() {
+                Some(file_name) => {
+                    if let Some(file_name) = file_name.to_str() {
+                        file_name.to_string()
+                    } else {
+                        return None;
+                    }
+                }
+                None => return None,
+            };
+
+            return Some(PoolFileInfo {
+                file_id: nanoid::nanoid!(FILE_ID_LENGTH),
+                file_name,
+                total_size: metadata.len(),
+                origin_node_id: node_id,
+            });
+        }
+        return None;
     }
 }

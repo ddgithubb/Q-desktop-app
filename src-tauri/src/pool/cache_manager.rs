@@ -421,7 +421,7 @@ impl CacheManager {
                 let mut promised_requests: Vec<PromisedCacheRequestInfo> =
                     Vec::with_capacity(promised_requests_map.len());
                 for (requesting_node_id, requested_chunk_ranges) in promised_requests_map.drain() {
-                    if self.pool_state.check_is_node_active(&requesting_node_id) {
+                    if self.pool_state.is_node_active(&requesting_node_id) {
                         promised_requests.push(PromisedCacheRequestInfo {
                             requesting_node_id,
                             requested_chunk_ranges,

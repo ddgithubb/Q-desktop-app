@@ -13,6 +13,12 @@
     "allowlist": {
       "dialog": {
         "open": true
+      },
+      "protocol": {
+        "asset": true,
+        "assetScope": [
+          "$LOCALDATA/*"
+        ]
       }
     },
     "bundle": {
@@ -30,7 +36,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "PoolNet",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -49,7 +55,7 @@
       }
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' asset: https://asset.localhost"
     },
     "updater": {
       "active": false

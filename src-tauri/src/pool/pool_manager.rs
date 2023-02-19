@@ -1,11 +1,13 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use log::info;
-use parking_lot::RwLock;
+use tokio::sync::RwLock as AsyncRwLock;
+
+use crate::{events::reconnect_pool_event, poolpb::PoolFileInfo};
 
 use super::{
-    pool_net::PoolNet, pool_state::PoolState,
-    sync_server_client::{SyncServerClient}, pool_conn::PoolConn,
+    pool_conn::PoolConn, pool_net::PoolNet, pool_state::PoolState,
+    sync_server_client::SyncServerClient,
 };
 
 struct Pool {
@@ -22,7 +24,9 @@ impl Pool {
         let pool_net = PoolNet::init(pool_state.clone(), pool_conn.clone());
         let sync_server_client = SyncServerClient::init(pool_state.clone(), pool_conn.clone());
 
-        pool_conn.pool_net_ref.store(Some(Arc::new(Arc::downgrade(&pool_net.clone()))));
+        pool_conn
+            .pool_net_ref
+            .store(Some(Arc::new(Arc::downgrade(&pool_net.clone()))));
 
         Pool {
             pool_state,
@@ -41,53 +45,100 @@ impl Pool {
 }
 
 pub struct PoolManager {
-    active_pools: RwLock<HashMap<String, Pool>>,
+    active_pools: AsyncRwLock<HashMap<String, Pool>>,
 }
 
 impl PoolManager {
     pub fn init() -> Self {
         info!("Initializing Pool Manager...");
 
-        PoolManager { active_pools: RwLock::new(HashMap::new()) }
+        PoolManager {
+            active_pools: AsyncRwLock::new(HashMap::new()),
+        }
     }
 
-    pub fn connect_to_pool(self: Arc<PoolManager>, pool_id: String) {
+    pub async fn connect_to_pool(&self, pool_id: String) {
         let pool: Pool = Pool::init(pool_id.clone());
 
-        self.clone()
-            .set_pool_close_reconnect_handler(pool_id.clone(), pool.pool_state.clone());
-
-        {
-            let mut active_pools = self.active_pools.write();
-            let _ = active_pools.insert(pool_id, pool);
+        let mut active_pools = self.active_pools.write().await;
+        if let Some(existing_pool) = active_pools.insert(pool_id, pool) {
+            reconnect_pool_event(&existing_pool.pool_state.pool_id);
+            existing_pool.clean();
         }
     }
 
     pub async fn disconnect_from_pool(&self, pool_id: String) {
-        let mut active_pools = self.active_pools.write();
+        let mut active_pools = self.active_pools.write().await;
         if let Some(pool) = active_pools.remove(&pool_id) {
             pool.pool_state.set_disconnect();
             pool.sync_server_client.close().await;
         }
     }
 
-    fn set_pool_close_reconnect_handler(
-        self: Arc<PoolManager>,
-        pool_id: String,
-        pool_state: Arc<PoolState>,
-    ) {
-        tokio::spawn(async move {
-            pool_state.close_signal().await;
+    pub async fn send_text_message(&self, pool_id: &String, text: String) {
+        let active_pools = self.active_pools.read().await;
+        if let Some(pool) = active_pools.get(pool_id) {
+            pool.pool_net.send_text_message(text).await;
+        }
+    }
+
+    pub async fn add_file_offer(&self, pool_id: &String, file_path: String) {
+        let active_pools = self.active_pools.read().await;
+        if let Some(pool) = active_pools.get(pool_id) {
+            let file_path = PathBuf::from(file_path);
+
+            if let Some(file_offer) =
+                PoolNet::generate_file_offer(file_path.clone(), pool.pool_state.node_id.clone())
             {
-                let mut active_pools = self.active_pools.write();
-                let pool = active_pools.remove(&pool_id);
-                if let Some(pool) = pool {
-                    pool.clean();
+                pool.pool_net.send_file_offer(file_offer, file_path).await;
+            }
+        }
+    }
+
+    pub async fn add_image_offer(&self, pool_id: &String, file_path: String) {
+        let active_pools = self.active_pools.read().await;
+        if let Some(pool) = active_pools.get(pool_id) {
+            let path = PathBuf::from(file_path);
+
+            if let Some(file_offer) =
+                PoolNet::generate_file_offer(path.clone(), pool.pool_state.node_id.clone())
+            {
+                pool.pool_net.send_image_offer(file_offer, path).await;
+            }
+        }
+    }
+
+    pub async fn download_file(
+        &self,
+        pool_id: &String,
+        file_info: PoolFileInfo,
+        dir_path: String,
+    ) {
+        let active_pools = self.active_pools.read().await;
+        if let Some(pool) = active_pools.get(pool_id) {
+            let dir_path = PathBuf::from(dir_path);
+
+            if let Ok(metadata) = dir_path.metadata() {
+                if !metadata.is_dir() {
+                    return;
                 }
+
+                return pool.pool_net.download_file(file_info, dir_path).await;
             }
-            if pool_state.reconnect() {
-                self.connect_to_pool(pool_id);
-            }
-        });
+        }
+    }
+
+    pub async fn retract_file_offer(&self, pool_id: &String, file_id: String) {
+        let active_pools = self.active_pools.read().await;
+        if let Some(pool) = active_pools.get(pool_id) {
+            pool.pool_net.send_retract_file_offer(file_id).await;
+        }
+    }
+
+    pub async fn remove_file_download(&self, pool_id: &String, file_id: String) {
+        let active_pools = self.active_pools.read().await;
+        if let Some(pool) = active_pools.get(pool_id) {
+            pool.pool_net.send_retract_file_request(file_id).await;
+        }
     }
 }

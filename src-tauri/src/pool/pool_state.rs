@@ -1,7 +1,10 @@
 use crate::{
+    events::{
+        add_pool_file_offers_event, init_pool_file_seeders_event, remove_pool_file_offer_event,
+    },
     poolpb::{PoolFileInfo, PoolFileSeeders},
-    store::user_store::{BasicUserInfo},
-    STORE_MANAGER,
+    store::user_store::BasicUserInfo,
+    POOL_MANAGER, STORE_MANAGER,
 };
 
 use super::pool_node_position::PoolNodePosition;
@@ -83,6 +86,12 @@ impl PoolState {
             self.closed.store(true, Ordering::SeqCst);
             let close_chan_tx = self.close_chan_tx.swap(None);
             if let Some(_close_chan_tx) = close_chan_tx {
+                if self.reconnect() {
+                    let pool_id = self.pool_id.clone();
+                    tokio::spawn(async move {
+                        POOL_MANAGER.connect_to_pool(pool_id).await;
+                    });
+                }
                 // let _ = close_chan_tx.try_send(()); will be dropped anyways
                 return true;
             }
@@ -130,7 +139,7 @@ impl PoolState {
             self._is_only_node.store(only_node, Ordering::SeqCst);
 
             if only_node {
-                self.latest.store(true, Ordering::SeqCst);
+                self.set_latest();
             }
         }
 
@@ -165,7 +174,7 @@ impl PoolState {
         r.get(node_id).cloned()
     }
 
-    pub(super) fn check_is_node_active(&self, node_id: &String) -> bool {
+    pub(super) fn is_node_active(&self, node_id: &String) -> bool {
         let r = self.active_nodes.read();
         r.contains_key(node_id)
     }
@@ -190,47 +199,92 @@ impl PoolState {
         }
     }
 
-    pub(super) fn add_file_seeder(&self, seeder_node_id: &String, file_info: &PoolFileInfo) {
-        let mut available_files = self.available_files.lock();
-        available_files.add_seeder(seeder_node_id, file_info);
+    pub(super) fn add_file_offer(&self, seeder_node_id: &String, file_info: &PoolFileInfo) {
+        let success = {
+            let mut available_files = self.available_files.lock();
+            available_files.add_seeder(seeder_node_id, file_info)
+        };
 
-        // fire add file seeder event
-        todo!()
-    }
-
-    pub(super) fn remove_file_seeder(&self, seeder_node_id: &String, file_id: &String) {
-        let mut available_files = self.available_files.lock();
-        available_files.remove_seeder(seeder_node_id, file_id);
-
-        // fire remove file seeder event
-        todo!()
-    }
-
-    pub(super) fn add_file_seeders(&self, file_seeders: Vec<PoolFileSeeders>) {
-        let mut available_files = self.available_files.lock();
-        for file in file_seeders {
-            let file_info = match &file.file_info {
-                Some(file_info) => file_info,
-                None => continue
-            };
-
-            for seeder_id in file.seeder_node_ids {
-                available_files.add_seeder(&seeder_id, file_info);
-            }
+        if !success {
+            return;
         }
 
-        // fire _ event
-        todo!()
+        add_pool_file_offers_event(
+            &self.pool_id,
+            seeder_node_id.clone(),
+            vec![file_info.clone()],
+        );
     }
 
     pub(super) fn add_file_offers(&self, seeder_node_id: &String, file_offers: Vec<PoolFileInfo>) {
-        let mut available_files = self.available_files.lock();
-        for file_offer in file_offers {
-            available_files.add_seeder(seeder_node_id, &file_offer);
+        if file_offers.is_empty() {
+            return;
         }
 
-        // fire _ event
-        todo!()
+        let file_offers = {
+            let mut added_file_offers = Vec::with_capacity(file_offers.len());
+            let mut available_files = self.available_files.lock();
+            for file_offer in file_offers {
+                if available_files.add_seeder(seeder_node_id, &file_offer) {
+                    added_file_offers.push(file_offer);
+                }
+            }
+            added_file_offers
+        };
+
+        if file_offers.is_empty() {
+            return;
+        }
+
+        add_pool_file_offers_event(&self.pool_id, seeder_node_id.clone(), file_offers);
+    }
+
+    pub(super) fn remove_file_offer(&self, seeder_node_id: &String, file_id: &String) {
+        {
+            let mut available_files = self.available_files.lock();
+            available_files.remove_seeder(seeder_node_id, file_id);
+        }
+
+        remove_pool_file_offer_event(&self.pool_id, seeder_node_id.clone(), file_id.clone());
+    }
+
+    pub(super) fn init_file_seeders(&self, file_seeders: Vec<PoolFileSeeders>) {
+        if file_seeders.is_empty() {
+            return;
+        }
+
+        let file_seeders = {
+            let mut added_file_seeders = Vec::with_capacity(file_seeders.len());
+            let mut available_files = self.available_files.lock();
+            for file in file_seeders {
+                let file_info = match &file.file_info {
+                    Some(file_info) => file_info,
+                    None => continue,
+                };
+
+                let mut added_seeder_node_ids = Vec::with_capacity(file.seeder_node_ids.len());
+                for seeder_id in file.seeder_node_ids {
+                    if available_files.add_seeder(&seeder_id, file_info) {
+                        added_seeder_node_ids.push(seeder_id);
+                    }
+                }
+
+                if !added_seeder_node_ids.is_empty() {
+                    added_file_seeders.push(PoolFileSeeders {
+                        file_info: file.file_info,
+                        seeder_node_ids: added_seeder_node_ids,
+                    });
+                }
+            }
+
+            added_file_seeders
+        };
+
+        if file_seeders.is_empty() {
+            return;
+        }
+
+        init_pool_file_seeders_event(&self.pool_id, file_seeders);
     }
 
     pub(super) fn collect_file_seeders(&self) -> Vec<PoolFileSeeders> {
@@ -299,16 +353,16 @@ impl AvailableFiles {
         }
     }
 
-    fn add_seeder(&mut self, seeder_node_id: &String, file_info: &PoolFileInfo) {
+    fn add_seeder(&mut self, seeder_node_id: &String, file_info: &PoolFileInfo) -> bool {
         if let Some(file_seeders) = self.file_seeders.get_mut(&file_info.file_id) {
             if file_seeders.file_info.file_name != file_info.file_name
                 || file_seeders.file_info.total_size != file_info.total_size
             {
-                return;
+                return false;
             }
 
             if !file_seeders.seeders.insert(seeder_node_id.clone()) {
-                return;
+                return false;
             }
         } else {
             let mut seeders = HashSet::new();
@@ -329,10 +383,10 @@ impl AvailableFiles {
             let mut file_ids = HashSet::new();
             file_ids.insert(file_info.file_id.clone());
 
-            self
-                .file_offers
-                .insert(seeder_node_id.clone(), file_ids);
+            self.file_offers.insert(seeder_node_id.clone(), file_ids);
         }
+
+        true
     }
 
     fn remove_seeder(&mut self, seeder_node_id: &String, file_id: &String) {

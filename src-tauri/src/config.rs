@@ -73,7 +73,7 @@ pub fn sync_server_connect_endpoint(pool_id: &str) -> String {
     sync_server_ws_host(format!("/ss/{}/connect?poolid={}&displayname={}",
         SYNC_SERVER_VERSION,
         pool_id,
-        STORE_MANAGER._device_name(),
+        STORE_MANAGER._display_name(),
     ))
 }
 

@@ -4,7 +4,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
     path::PathBuf,
     sync::{
-        atomic::{AtomicUsize, Ordering, AtomicBool},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Weak,
     },
     time::{Instant, SystemTime},
@@ -21,10 +21,11 @@ use crate::{
         CHUNKS_MISSING_POLLING_INTERVAL, CHUNK_SIZE, MAX_CHUNKS_MISSING_RETRY,
         MAX_POLL_COUNT_BEFORE_SEND, MAX_TEMP_FILE_SIZE,
     },
+    events::{complete_pool_file_download_event, add_file_download_event},
     pool::chunk::{chunk_ranges::create_full_chunk_range, chunk_util::total_size_to_total_chunks},
     poolpb::{pool_message::FileRequestData, PoolChunkMessage, PoolFileInfo},
     store::file_store::{FileStore, TempFile},
-    STORE_MANAGER,
+    STATE_UPDATER, STORE_MANAGER,
 };
 
 use super::{
@@ -35,14 +36,6 @@ use super::{
     pool_net::{PoolNet, SendChunkInfo},
     pool_state::PoolState,
 };
-
-pub const FILE_PROGRESS_STATUS_DOWNLOADING: usize = 0;
-pub const FILE_PROGRESS_STATUS_RETRYING: usize = 1;
-
-pub struct FileDownloadStatus {
-    status: AtomicUsize,
-    progress: AtomicUsize, // 0 - 100
-}
 
 struct FileRequest {
     file_id: String,
@@ -78,6 +71,8 @@ pub(super) struct FileDownload {
     total_chunks: u64,
     chunks_downloaded: u64,
     chunks_downloaded_ranges: ChunkRanges,
+
+    requested_node_id: String,
 }
 
 pub(super) struct FileManager {
@@ -141,7 +136,12 @@ impl FileManager {
         self.pool_net_ref.store(None);
     }
 
-    pub(super) fn add_chunk_sender(self: &Arc<Self>, file_info: PoolFileInfo, path: PathBuf, intend_to_broadcast: bool) {
+    pub(super) fn add_chunk_sender(
+        self: &Arc<Self>,
+        file_info: PoolFileInfo,
+        path: PathBuf,
+        intend_to_broadcast: bool,
+    ) {
         let mut chunk_senders = self.chunk_senders.write();
         chunk_senders.insert(
             file_info.file_id.clone(),
@@ -237,7 +237,7 @@ impl FileManager {
             chunk_sender.retract_request(file_id);
         }
     }
-    
+
     pub(super) fn broadcast_file(&self, file_id: String) {
         let chunk_senders = self.chunk_senders.read();
         if let Some(chunk_sender) = chunk_senders.get(&file_id) {
@@ -245,16 +245,22 @@ impl FileManager {
         }
     }
 
-    // Returns Ok(true) if new file download has been initialized
-    // Returns Ok(false) if download already exists
-    // Returns Err(_) if file download cannot be initialized
+    pub(super) fn download_requested_node_id(&self, file_id: &String) -> Option<String> {
+        let file_downloads = self.file_downloads.lock();
+        if let Some(file_download) = file_downloads.get(file_id) {
+            return Some(file_download.requested_node_id.clone());
+        }
+        None
+    }
+
+    // Returns Ok(requested_node_id) if new file download has been initialized
     pub(super) fn init_file_download(
         self: &Arc<Self>,
         file_info: PoolFileInfo,
         dir_path: Option<PathBuf>,
-    ) -> Result<bool> {
+    ) -> Result<String> {
         if self.has_file_download(&file_info.file_id) {
-            return Ok(false);
+            return Err(anyhow!("has file download"));
         }
 
         let (path, is_temp) = match dir_path {
@@ -292,6 +298,13 @@ impl FileManager {
 
         let total_chunks = total_size_to_total_chunks(file_info.total_size);
 
+        let cached_seeders: Vec<String> =
+            match self.pool_state.sorted_file_seeders(&file_info.file_id) {
+                Some(seeders) => seeders,
+                None => return Err(anyhow!("no seeders")),
+            };
+        let requested_node_id = cached_seeders[0].clone();
+
         let file_download = FileDownload {
             file_info: file_info.clone(),
             full_chunk_range: create_full_chunk_range(file_info.total_size),
@@ -300,6 +313,7 @@ impl FileManager {
             total_chunks,
             chunks_downloaded: 0,
             chunks_downloaded_ranges: ChunkRanges::new(),
+            requested_node_id: requested_node_id.clone(),
         };
 
         let mut file_downloads = self.file_downloads.lock();
@@ -307,10 +321,7 @@ impl FileManager {
 
         drop(file_downloads);
 
-        let file_download_status = Arc::new(FileDownloadStatus {
-            status: AtomicUsize::new(FILE_PROGRESS_STATUS_DOWNLOADING),
-            progress: AtomicUsize::new(0),
-        });
+        let file_download_progress = Arc::new(AtomicUsize::new(0));
 
         let (handle_chunk_tx, handle_chunk_rx) = flume::unbounded::<PoolChunkMessage>();
 
@@ -319,6 +330,11 @@ impl FileManager {
         drop(chunk_handlers);
 
         self.add_chunk_sender(file_info.clone(), path, false);
+
+        add_file_download_event(&self.pool_state.pool_id, file_info.clone());
+        
+        STATE_UPDATER
+            .register_download_progress(file_info.file_id.clone(), file_download_progress.clone());
 
         info!(
             "Downloading file {}, at {:?}",
@@ -332,11 +348,12 @@ impl FileManager {
                 file_info,
                 file_handle,
                 handle_chunk_rx,
-                file_download_status,
+                file_download_progress,
+                cached_seeders,
             );
         });
 
-        Ok(true)
+        Ok(requested_node_id)
     }
 
     fn chunk_sender_loop(self: Arc<Self>, file_id: String, mut broadcast: bool) {
@@ -391,10 +408,7 @@ impl FileManager {
                 for i in (0..file_requests_len).rev() {
                     let req = &mut file_requests[i];
 
-                    if !self
-                        .pool_state
-                        .check_is_node_active(&req.requesting_node_id)
-                    {
+                    if !self.pool_state.is_node_active(&req.requesting_node_id) {
                         file_requests.remove(i);
                         continue;
                     }
@@ -447,8 +461,9 @@ impl FileManager {
                                     if req.next_chunk_number
                                         < req.requested_chunks[req.chunk_missing_range_number].start
                                     {
-                                        req.next_chunk_number =
-                                            req.requested_chunks[req.chunk_missing_range_number].start;
+                                        req.next_chunk_number = req.requested_chunks
+                                            [req.chunk_missing_range_number]
+                                            .start;
                                     }
                                     break;
                                 }
@@ -499,7 +514,7 @@ impl FileManager {
                     chunk_number = 0;
                     broadcast = false;
                     chunk_sender.broadcasting.store(false, Ordering::SeqCst);
-                    continue;   
+                    continue;
                 }
 
                 None
@@ -524,13 +539,8 @@ impl FileManager {
                 return;
             }
 
-            let send_chunk_info = SendChunkInfo::create(
-                file_id.clone(),
-                chunk_number,
-                buf,
-                dest_node_ids,
-                false,
-            );
+            let send_chunk_info =
+                SendChunkInfo::create(file_id.clone(), chunk_number, buf, dest_node_ids, false);
 
             if self.send_chunk_tx.send(send_chunk_info).is_err() {
                 return;
@@ -545,21 +555,9 @@ impl FileManager {
         file_info: PoolFileInfo,
         mut file_handle: File,
         handle_chunk_rx: Receiver<PoolChunkMessage>,
-        file_download_status: Arc<FileDownloadStatus>,
+        file_download_status: Arc<AtomicUsize>,
+        mut cached_seeders: Vec<String>,
     ) {
-        let mut cached_seeders: Vec<String> =
-            match self.pool_state.sorted_file_seeders(&file_info.file_id) {
-                Some(seeders) => seeders,
-                None => return,
-            };
-
-        self.request_chunks_missing(
-            file_info.file_id.clone(),
-            cached_seeders[0].clone(),
-            create_full_chunk_range(file_info.total_size),
-            false,
-        );
-
         let mut is_done = false;
         let mut is_missing = false;
         let mut last_progress = 0;
@@ -573,19 +571,6 @@ impl FileManager {
                 Ok(chunk_msg) => chunk_msg,
                 Err(flume::RecvTimeoutError::Disconnected) => return,
                 Err(flume::RecvTimeoutError::Timeout) => {
-                    let chunks_missing = {
-                        let file_downloads = self.file_downloads.lock();
-                        let file_download = match file_downloads.get(&file_info.file_id) {
-                            Some(file_download) => file_download,
-                            None => return,
-                        };
-
-                        // Note chunks_missing should never be empty or else it would've finished downloading
-                        file_download
-                            .full_chunk_range
-                            .diff(&file_download.chunks_downloaded_ranges)
-                    };
-
                     if last_request_sent_count == MAX_POLL_COUNT_BEFORE_SEND {
                         last_request_sent_count = 0;
                     } else {
@@ -593,42 +578,61 @@ impl FileManager {
                         continue;
                     }
 
-                    if retry_count < MAX_CHUNKS_MISSING_RETRY {
-                        if is_missing {
-                            retry_count += 1;
-                        } else {
-                            retry_count = 0;
-                        }
-                    } else {
-                        if seeder_index == cached_seeders.len() {
-                            cached_seeders =
-                                match self.pool_state.sorted_file_seeders(&file_info.file_id) {
-                                    Some(seeders) => seeders,
-                                    None => {
-                                        self.complete_file_download(&file_info.file_id, false);
-                                        return;
-                                    }
-                                };
-
-                            seeder_index = 0;
+                    let request_node_id = loop {
+                        if retry_count < MAX_CHUNKS_MISSING_RETRY {
+                            if is_missing {
+                                retry_count += 1;
+                            } else {
+                                retry_count = 0;
+                            }
                         } else {
                             seeder_index += 1;
+
+                            if seeder_index == cached_seeders.len() {
+                                cached_seeders =
+                                    match self.pool_state.sorted_file_seeders(&file_info.file_id) {
+                                        Some(seeders) => seeders,
+                                        None => {
+                                            self.complete_file_download(&file_info.file_id, false);
+                                            return;
+                                        }
+                                    };
+
+                                seeder_index = 0;
+                            }
+
+                            retry_count = 0;
                         }
 
-                        retry_count = 0;
-                    }
+                        let request_node_id = cached_seeders[seeder_index].clone();
 
-                    if !is_missing {
-                        file_download_status
-                            .status
-                            .store(FILE_PROGRESS_STATUS_RETRYING, Ordering::Relaxed);
-                    }
+                        if self.pool_state.is_node_active(&request_node_id) {
+                            break request_node_id;
+                        }
+
+                        retry_count = MAX_CHUNKS_MISSING_RETRY;
+                    };
 
                     is_missing = true;
 
+                    let chunks_missing = {
+                        let mut file_downloads = self.file_downloads.lock();
+                        let file_download = match file_downloads.get_mut(&file_info.file_id) {
+                            Some(file_download) => file_download,
+                            None => return,
+                        };
+
+                        file_download.requested_node_id = request_node_id.clone();
+
+                        // Note chunks_missing should never be empty or else it would've finished downloading
+                        file_download
+                            .full_chunk_range
+                            .diff(&file_download.chunks_downloaded_ranges)
+                    };
+
                     self.request_chunks_missing(
                         file_info.file_id.clone(),
-                        cached_seeders[seeder_index].clone(),
+                        request_node_id,
                         chunks_missing,
                         retry_count == MAX_CHUNKS_MISSING_RETRY,
                     );
@@ -650,9 +654,6 @@ impl FileManager {
             }
 
             if is_missing {
-                file_download_status
-                    .status
-                    .store(FILE_PROGRESS_STATUS_DOWNLOADING, Ordering::Relaxed);
                 is_missing = false;
             }
 
@@ -665,9 +666,7 @@ impl FileManager {
                 ((file_download.chunks_downloaded * 100) / file_download.total_chunks) as usize;
             if last_progress != progress {
                 last_progress = progress;
-                file_download_status
-                    .progress
-                    .store(progress, Ordering::Relaxed);
+                file_download_status.store(progress, Ordering::Relaxed);
             }
 
             if file_download.chunks_downloaded == file_download.total_chunks {
@@ -702,7 +701,7 @@ impl FileManager {
         }
     }
 
-    fn complete_file_download(&self, file_id: &String, fail_override: bool) {
+    pub(super) fn complete_file_download(&self, file_id: &String, fail_override: bool) {
         let mut file_downloads = self.file_downloads.lock();
         let file_download = match file_downloads.remove(file_id) {
             Some(file_download) => file_download,
@@ -728,7 +727,7 @@ impl FileManager {
                 });
             }
 
-            self.seed_file(&file_download.path, file_download.file_info);
+            self.seed_file(file_download.file_info, file_download.path);
         } else {
             let _ = remove_file(file_download.path);
         }
@@ -739,8 +738,8 @@ impl FileManager {
         chunk_handlers.remove(file_id);
         drop(chunk_handlers);
 
-        // Fire complete file status (including success data)
-        todo!()
+        STATE_UPDATER.unregister_download_progress(file_id);
+        complete_pool_file_download_event(&self.pool_state.pool_id, file_id.clone(), success);
     }
 
     fn add_temp_file(&self, temp_file: TempFile) {
@@ -778,15 +777,10 @@ impl FileManager {
         }
     }
 
-    fn seed_file(&self, path: &PathBuf, file_info: PoolFileInfo) {
-        let path_str = match path.to_str() {
-            Some(path_str) => path_str.to_string(),
-            None => return,
-        };
-
+    fn seed_file(&self, file_info: PoolFileInfo, path: PathBuf) {
         if let Some(pool_net) = self.pool_net_ref.load_full() {
             tokio::spawn(async move {
-                pool_net.send_file_offer(path_str, file_info).await;
+                pool_net.send_file_offer(file_info, path).await;
             });
         }
     }
@@ -794,7 +788,7 @@ impl FileManager {
     fn retract_file_offer(&self, file_id: String) {
         if let Some(pool_net) = self.pool_net_ref.load_full() {
             tokio::spawn(async move {
-                pool_net.send_retract_file_offer(&file_id).await;
+                pool_net.send_retract_file_offer(file_id).await;
             });
         }
     }
@@ -811,7 +805,7 @@ impl ChunkSender {
             total_chunks: total_size_to_total_chunks(file_info.total_size),
             full_chunk_range: create_full_chunk_range(file_info.total_size),
             file_info,
-            broadcasting: AtomicBool::new(intend_to_broadcast), 
+            broadcasting: AtomicBool::new(intend_to_broadcast),
             path,
             file_requests: Mutex::new(VecDeque::new()),
             file_manager_ref,
@@ -859,7 +853,7 @@ impl ChunkSender {
             });
 
             if file_requests.len() == 1 && !self.broadcasting.load(Ordering::SeqCst) {
-                let file_id = file_requests[0].file_id.clone(); 
+                let file_id = file_requests[0].file_id.clone();
                 if let Some(file_manager) = self.file_manager_ref.upgrade() {
                     std::thread::spawn(move || {
                         file_manager.chunk_sender_loop(file_id, false);

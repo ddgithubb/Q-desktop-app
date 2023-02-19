@@ -13,6 +13,11 @@ use tokio_tungstenite::{connect_async as connect_ws_async, MaybeTlsStream, WebSo
 use crate::config::{
     sync_server_connect_endpoint, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_TIMEOUT_SECONDS,
 };
+use crate::events::{
+    add_pool_node_event, init_pool_event, init_profile_event, remove_pool_node_event,
+    remove_pool_user_event, update_pool_user_event,
+};
+use crate::ipc::{IPCInitPool, IPCInitProfile, IPCPoolNode};
 use crate::sspb::ss_message::{
     self, AddNodeData, Data as SSMessageData, InitPoolData, Op as SSMessageOp, RemoveNodeData,
     RemoveUserData, SdpResponseData, SuccessResponseData, UpdateUserData,
@@ -72,42 +77,57 @@ impl SyncServerClient {
 
         // TEMP
         let _temp_my_user_info = pool_info.users[0].clone();
-        STORE_MANAGER.init_profile(
-            _temp_my_user_info.user_id,
+        STORE_MANAGER.new_profile(
+            _temp_my_user_info.clone(),
             _temp_my_user_info.devices[0].clone(),
         );
+
+        init_profile_event(IPCInitProfile {
+            device: _temp_my_user_info.devices[0].clone(),
+            user_info: _temp_my_user_info,
+        });
         // TEMP
 
-        STORE_MANAGER.init_pool(self.pool_state.pool_id.clone(), pool_info);
-        self.init_nodes(init_pool_data.init_nodes);
-    }
+        STORE_MANAGER.update_pool(self.pool_state.pool_id.clone(), pool_info.clone());
 
-    fn init_nodes(&self, add_nodes_data: Vec<AddNodeData>) {
-        {
+        let init_nodes = {
+            let mut init_nodes = Vec::with_capacity(init_pool_data.init_nodes.len());
             let mut active_nodes = self.pool_state.active_nodes.write();
 
-            for add_node_data in add_nodes_data {
+            for add_node_data in init_pool_data.init_nodes {
+                init_nodes.push(IPCPoolNode {
+                    node_id: add_node_data.node_id.clone(),
+                    user_id: add_node_data.user_id,
+                });
                 active_nodes.insert(add_node_data.node_id, add_node_data.path);
             }
-        }
 
-        // fire add_nodes event
-        todo!();
+            init_nodes
+        };
+
+        init_pool_event(IPCInitPool {
+            pool_info,
+            init_nodes,
+        });
     }
 
     fn add_node(&self, add_node_data: AddNodeData) {
         self.pool_state
             .update_active_node_path(&add_node_data.node_id, add_node_data.path);
 
-        // fire add_node event
-        todo!()
+        add_pool_node_event(
+            &self.pool_state.pool_id,
+            IPCPoolNode {
+                node_id: add_node_data.node_id,
+                user_id: add_node_data.user_id,
+            },
+        );
     }
 
     fn remove_node(&self, remove_node_data: RemoveNodeData) {
         self.pool_state.remove_node(&remove_node_data.node_id);
 
-        // fire remove_node event + make sure ui gets rid of corresponding file offers
-        todo!()
+        remove_pool_node_event(&self.pool_state.pool_id, remove_node_data.node_id);
     }
 
     fn update_user(&self, update_user_data: UpdateUserData) {
@@ -116,17 +136,15 @@ impl SyncServerClient {
             None => return,
         };
 
-        STORE_MANAGER.update_pool_user(&self.pool_state.pool_id, user_info);
+        STORE_MANAGER.update_pool_user(&self.pool_state.pool_id, user_info.clone());
 
-        // fire update_user
-        todo!()
+        update_pool_user_event(&self.pool_state.pool_id, user_info);
     }
 
     fn remove_user(&self, remove_user_data: RemoveUserData) {
         STORE_MANAGER.remove_pool_user(&self.pool_state.pool_id, &remove_user_data.user_id);
 
-        // fire remove_user
-        todo!()
+        remove_pool_user_event(&self.pool_state.pool_id, remove_user_data.user_id);
     }
 
     async fn handle_ws_http_error(self: &Arc<SyncServerClient>) {

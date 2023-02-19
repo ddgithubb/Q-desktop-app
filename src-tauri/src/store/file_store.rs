@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     fs::{create_dir, read_dir, File},
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Instant, SystemTime},
 };
 
@@ -66,20 +66,15 @@ impl StoreManager {
         None
     }
 
-    pub fn add_file_offer(
-        &self,
-        pool_id: &String,
-        path: String,
-        file_info: PoolFileInfo,
-    ) -> Option<PathBuf> {
-        if let Some(path) = FileStore::normalize_path(path) {
-            if let Some(normalized_path) = path.to_str() {
+    pub fn add_file_offer(&self, pool_id: &String, file_info: PoolFileInfo, path: PathBuf) -> bool {
+        if let Some(normalized_path) = FileStore::normalize_path(path) {
+            if let Some(normalized_path) = normalized_path.to_str() {
                 let mut file_store = self.file_store.lock();
 
                 let file_id = file_info.file_id.clone();
                 if let Some(pool_offers) = file_store.file_offers.get_mut(pool_id) {
                     if pool_offers.contains_key(normalized_path) {
-                        return None;
+                        return false;
                     } else {
                         pool_offers.insert(normalized_path.to_string(), file_info);
                     }
@@ -98,10 +93,10 @@ impl StoreManager {
                 );
 
                 file_store.update();
-                return Some(path);
+                return true;
             }
         }
-        None
+        false
     }
 
     pub fn remove_file_offer(&self, file_id: &String) -> bool {
@@ -268,7 +263,7 @@ impl FileStore {
         self.file_paths = file_paths;
     }
 
-    pub fn normalize_path(path: String) -> Option<PathBuf> {
+    pub fn normalize_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
         std::fs::canonicalize(path).ok()
     }
 
@@ -283,7 +278,7 @@ impl FileStore {
     }
 
     pub fn cache_folder_path() -> Option<PathBuf> {
-        match StoreManager::app_data_local_dir() {
+        match StoreManager::app_data_dir() {
             Some(mut path) => {
                 path.push("cache");
                 Some(path)
@@ -318,7 +313,7 @@ impl FileStore {
     }
 
     fn temp_folder_path() -> Option<PathBuf> {
-        match StoreManager::app_data_local_dir() {
+        match StoreManager::app_data_dir() {
             Some(mut path) => {
                 path.push("temp");
                 Some(path)

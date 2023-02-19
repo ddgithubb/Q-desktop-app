@@ -16,7 +16,8 @@ message PoolBasicNode {
 
 message PoolUserInfo {
     string user_id = 1;
-    repeated PoolDeviceInfo devices = 2;
+    string display_name = 2;
+    repeated PoolDeviceInfo devices = 3;
 }
 
 message PoolDeviceInfo {
@@ -26,7 +27,9 @@ message PoolDeviceInfo {
 }
 
 message PoolInfo {
-    repeated PoolUserInfo users = 1;
+    string pool_id = 1;
+    string pool_name = 2;
+    repeated PoolUserInfo users = 3;
 }
 
 message SSMessage { // Sync Server Message
