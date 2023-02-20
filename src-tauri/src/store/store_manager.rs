@@ -25,8 +25,8 @@ impl StoreManager {
             panic!()
         }
 
-        let user_store: Store<UserStore> = Store::new(USER_STORE_NAME.to_string()).unwrap();
-        let mut file_store: Store<FileStore> = Store::new(FILE_STORE_NAME.to_string()).unwrap();
+        let user_store: Store<UserStore> = Store::new(USER_STORE_NAME.to_string());
+        let mut file_store: Store<FileStore> = Store::new(FILE_STORE_NAME.to_string());
 
         file_store.init();
 

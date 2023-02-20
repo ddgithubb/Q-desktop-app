@@ -16,60 +16,60 @@ export class BackendCommands {
         this.events = new EventEmitter();
     }
 
-    getPoolKey(poolID: string): number | undefined {
-        return this.poolKeyMap.get(poolID);
+    getPoolKey(poolId: string): number | undefined {
+        return this.poolKeyMap.get(poolId);
     }
 
-    connectToPool(poolID: string, poolKey: number, _display_name: string) {
-        this.poolKeyMap.set(poolID, poolKey);
+    connectToPool(poolId: string, poolKey: number, displayName: string) {
+        this.poolKeyMap.set(poolId, poolKey);
 
         store.dispatch(poolAction.updateConnectionState({
             key: poolKey,
             state: PoolConnectionState.CONNECTING,
         } as UpdateConnectionStateAction));
 
-        invoke('connect_to_pool', { pool_id: poolID, _display_name });
+        invoke('connect_to_pool', { poolId, displayName });
     }
 
-    disconnectFromPool(poolID: string) {
-        let key = this.getPoolKey(poolID);
-        if (!key) return;
+    disconnectFromPool(poolId: string) {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return;
 
-        this.poolKeyMap.delete(poolID);
+        this.poolKeyMap.delete(poolId);
 
         store.dispatch(poolAction.clearPool({
             key,
         } as ClearPoolAction));
 
-        invoke('disconnect_from_pool', { pool_id: poolID });
+        invoke('disconnect_from_pool', { poolId });
     }
 
-    sendTextMessage(poolID: string, text: String) {
-        invoke('send_text_message', { pool_id: poolID, text: text.trim() });
+    sendTextMessage(poolId: string, text: String) {
+        invoke('send_text_message', { poolId, text: text.trim() });
     }
 
-    async addFileOffer(poolID: string) {
-        let key = this.getPoolKey(poolID);
-        if (!key) return;
+    async addFileOffer(poolId: string) {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return;
 
-        let file_path = await open({
+        let filePath = await open({
             multiple: false,
             directory: false,
             title: "Add File",
         });
 
-        if (!file_path || typeof file_path != 'string') {
+        if (!filePath || typeof filePath != 'string') {
             return;
         }
 
-        invoke('add_file_offer', { pool_id: poolID, file_path });
+        invoke('add_file_offer', { poolId, filePath });
     }
 
-    async addImageOffer(poolID: string) {
-        let key = this.getPoolKey(poolID);
-        if (!key) return;
+    async addImageOffer(poolId: string) {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return;
 
-        let file_path = await open({
+        let filePath = await open({
             multiple: false,
             directory: false,
             title: "Add Image",
@@ -79,16 +79,16 @@ export class BackendCommands {
             }]
         });
 
-        if (!file_path || typeof file_path != 'string') {
+        if (!filePath || typeof filePath != 'string') {
             return;
         }
 
-        invoke('add_image_offer', { pool_id: poolID, file_path });
+        invoke('add_image_offer', { poolId, filePath });
     }
 
-    async downloadFile(poolID: string, fileInfo: PoolFileInfo) {
-        let key = this.getPoolKey(poolID);
-        if (!key) return;
+    async downloadFile(poolId: string, fileInfo: PoolFileInfo) {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return;
 
         for (const download of store.getState().pool.pools[key].downloadQueue) {
             if (download.fileInfo.fileId == fileInfo.fileId) {
@@ -96,28 +96,28 @@ export class BackendCommands {
             }
         }
 
-        let dir_path = await open({
+        let dirPath = await open({
             multiple: false,
             directory: true,
             title: "Choose Save Directory",
         });
 
-        invoke('download_file', { pool_id: poolID, file_info: fileInfo, dir_path });
+        invoke('download_file', { poolId, fileInfo, dirPath });
     }
 
-    retractFileOffer(poolID: string, fileID: string) {
-        let key = this.getPoolKey(poolID);
-        if (!key) return;
+    retractFileOffer(poolId: string, fileId: string) {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return;
 
-        invoke('retract_file_offer', { pool_id: poolID, file_id: fileID });
+        invoke('retract_file_offer', { poolId, fileId });
     }
 
-    removeFileDownload(poolID: string, fileDownload: PoolFileDownload) {
-        let key = this.getPoolKey(poolID);
-        if (!key) return;
+    removeFileDownload(poolId: string, fileDownload: PoolFileDownload) {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return;
 
         if (fileDownload.status == DownloadProgressStatus.DOWNLOADING) {
-            invoke('remove_file_download', { pool_id: poolID, file_id: fileDownload.fileInfo.fileId });
+            invoke('remove_file_download', { poolId, fileId: fileDownload.fileInfo.fileId });
         } else {
             let removeDownloadAction: RemoveDownloadAction = {
                 key,

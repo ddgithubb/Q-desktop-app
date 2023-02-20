@@ -38,6 +38,8 @@ impl Pool {
 
     pub(self) fn clean(self) {
         tokio::spawn(async move {
+            self.pool_state.set_disconnect();
+            self.sync_server_client.close().await;
             self.pool_net.clean().await;
             self.pool_conn.clean().await;
         });
@@ -70,8 +72,7 @@ impl PoolManager {
     pub async fn disconnect_from_pool(&self, pool_id: String) {
         let mut active_pools = self.active_pools.write().await;
         if let Some(pool) = active_pools.remove(&pool_id) {
-            pool.pool_state.set_disconnect();
-            pool.sync_server_client.close().await;
+            pool.clean();
         }
     }
 

@@ -1,4 +1,4 @@
-use std::{fs::{File, rename}, ops::{Deref, DerefMut}, io::{BufReader, BufWriter}, path::PathBuf};
+use std::{fs::{File, rename}, ops::{Deref, DerefMut}, io::{Write, Read}, path::PathBuf};
 
 use serde::{Serialize, Deserialize};
 
@@ -6,7 +6,6 @@ use super::store_manager::StoreManager;
 
 pub struct Store<T> {
     name: String,
-    store_file: File,
     store_path: PathBuf,
     store_data: T,
 }
@@ -26,42 +25,33 @@ impl<T> DerefMut for Store<T> {
 }
 
 impl<'a, T: Default + Serialize + for<'de> Deserialize<'de>> Store<T> {
-    pub fn new(name: String) -> Option<Self> {
-        let (store_file, store_path) = match Self::open_store_file(&name, false) {
-            Some(store) => store,
-            None => return None,
-        };
-
+    pub fn new(name: String) -> Self {
         let mut store = Store {
             name,
-            store_file,
-            store_path,
+            store_path: PathBuf::new(),
             store_data: T::default(),
         };
 
         store.load();
-        Some(store)
+        store
     }
 
-    pub fn load(&mut self) -> bool {
-        let reader = BufReader::new(&mut self.store_file);
-        if let Ok(data) = serde_json::from_reader::<_, T>(reader) {
+    pub fn load(&mut self) {
+        let (mut store_file, store_path) = Self::open_store_file(&self.name, false).unwrap();
+        let mut b = Vec::new();
+        store_file.read_to_end(&mut b).unwrap();
+        self.store_path = store_path;
+        if let Ok(data) = serde_json::from_slice(&b) {
             self.store_data = data;
-            return true;
         }
-        false
     }
 
-    pub fn update(&mut self) -> bool {
-        let (tmp_store_file, tmp_path) = match Self::open_store_file(&self.name, true) {
-            Some(store) => store,
-            None => return false,
-        };
-        let writer = BufWriter::new(tmp_store_file);
-        if let Ok(_) = serde_json::to_writer_pretty(writer, &self.store_data) {
-            return rename(tmp_path, &self.store_path).is_ok()
-        }
-        false
+    pub fn update(&mut self) {
+        let (mut tmp_store_file, tmp_path) = Self::open_store_file(&self.name, true).unwrap();
+        tmp_store_file.set_len(0).unwrap();
+        let b = serde_json::to_vec_pretty(&self.store_data).unwrap();
+        tmp_store_file.write_all(&b).unwrap();
+        rename(tmp_path, &self.store_path).unwrap();
     }
 
     fn open_store_file(name: &String, is_temp: bool) -> Option<(File, PathBuf)> {

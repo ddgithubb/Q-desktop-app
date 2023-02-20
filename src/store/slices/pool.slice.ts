@@ -36,7 +36,7 @@ const poolSlice = createSlice({
             let pool = getPool(state, action);
             let initPool = action.payload.initPool;
             pool.poolName = initPool.pool_info.poolName;
-            pool.connectionState = PoolConnectionState.CONNECTED,
+            pool.connectionState = PoolConnectionState.CONNECTED;
                 pool.users = initPool.pool_info.users;
             pool.activeNodes = initPool.init_nodes.map((node) => {
                 return {

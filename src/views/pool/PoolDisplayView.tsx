@@ -143,7 +143,7 @@ function PoolDisplayViewComponent({ pool, myNode, messageMode, userMap }: PoolDi
                 </div>
                 {/* delete file(s) button with function to delete multiple files by just clicking*/}
                 {
-                    myNode.fileOffers.map((fileInfo) => (
+                    myNode.fileOffers?.map((fileInfo) => (
                         <div className="display-cancel-button-container" key={fileInfo.fileId} onClick={() => retractFileOffer(fileInfo.fileId)}>
                             <div className="display-file-container display-cancel-button-child elipsify-container">
                                 <img src={FileIcon} height={22} width={22} />

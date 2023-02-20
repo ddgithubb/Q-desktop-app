@@ -40,7 +40,7 @@ listen(INIT_PROFILE_EVENT, (event) => {
 listen(INIT_POOL_EVENT, (event) => {
     let initPool: IPCInitPool = event.payload as any;
     let key = Backend.getPoolKey(initPool.pool_info.poolId);
-    if (!key) return;
+    if (key == undefined) return;
 
     let initPoolAction: InitPoolAction = {
         key,
@@ -52,7 +52,7 @@ listen(INIT_POOL_EVENT, (event) => {
 listen(RECONNECT_POOL_EVENT, (event) => {
     let reconnectPool: IPCReconnectPool = event.payload as any;
     let key = Backend.getPoolKey(reconnectPool.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let updateConnectionStateAction: UpdateConnectionStateAction = {
         key,
@@ -64,7 +64,7 @@ listen(RECONNECT_POOL_EVENT, (event) => {
 listen(ADD_POOL_NODE_EVENT, (event) => {
     let addPoolNode: IPCAddPoolNode = event.payload as any;
     let key = Backend.getPoolKey(addPoolNode.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
     
     let addNodeAction: AddNodeAction = {
         key,
@@ -80,7 +80,7 @@ listen(ADD_POOL_NODE_EVENT, (event) => {
 listen(REMOVE_POOL_NODE_EVENT, (event) => {
     let removePoolNode: IPCRemovePoolNode = event.payload as any;
     let key = Backend.getPoolKey(removePoolNode.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let removeNodeAction: RemoveNodeAction = {
         key,
@@ -92,7 +92,7 @@ listen(REMOVE_POOL_NODE_EVENT, (event) => {
 listen(UPDATE_POOL_USER_EVENT, (event) => {
     let updatePoolUser: IPCUpdatePoolUser = event.payload as any;
     let key = Backend.getPoolKey(updatePoolUser.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let updateUserAction: UpdateUserAction = {
         key,
@@ -104,7 +104,7 @@ listen(UPDATE_POOL_USER_EVENT, (event) => {
 listen(REMOVE_POOL_USER_EVENT, (event) => {
     let removePoolUser: IPCRemovePoolUser = event.payload as any;
     let key = Backend.getPoolKey(removePoolUser.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let removeUserAction: RemoveUserAction = {
         key,
@@ -116,7 +116,7 @@ listen(REMOVE_POOL_USER_EVENT, (event) => {
 listen(ADD_POOL_FILE_OFFERS_EVENT, (event) => {
     let addFileOffers: IPCAddPoolFileOffers = event.payload as any;
     let key = Backend.getPoolKey(addFileOffers.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let addFileOffersAction: AddFileOffersAction = {
         key,
@@ -129,7 +129,7 @@ listen(ADD_POOL_FILE_OFFERS_EVENT, (event) => {
 listen(REMOVE_POOL_FILE_OFFER_EVENT, (event) => {
     let removeFileOffer: IPCRemovePoolFileOffer = event.payload as any;
     let key = Backend.getPoolKey(removeFileOffer.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let removeFileOfferAction: RemoveFileOfferAction = {
         key,
@@ -142,7 +142,7 @@ listen(REMOVE_POOL_FILE_OFFER_EVENT, (event) => {
 listen(INIT_POOL_FILE_SEEDERS_EVENT, (event) => {
     let initFileSeeders: IPCInitPoolFileSeeders = event.payload as any;
     let key = Backend.getPoolKey(initFileSeeders.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let InitFileSeedersAction: InitFileSeedersAction = {
         key,
@@ -154,7 +154,7 @@ listen(INIT_POOL_FILE_SEEDERS_EVENT, (event) => {
 listen(ADD_FILE_DOWNLOAD_EVENT, (event) => {
     let addFileDownload: IPCAddPoolFileDownload = event.payload as any;
     let key = Backend.getPoolKey(addFileDownload.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let addDownloadAction: AddDownloadAction = {
         key,
@@ -166,7 +166,7 @@ listen(ADD_FILE_DOWNLOAD_EVENT, (event) => {
 listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {
     let completeFileDownload: IPCCompletePoolFileDownload = event.payload as any;
     let key = Backend.getPoolKey(completeFileDownload.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let completeDownloadAction: CompleteDownloadAction = {
         key,
@@ -181,7 +181,7 @@ listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {
 listen(INIT_POOL_MESSAGES_EVENT, (event) => {
     let initMessages: IPCInitPoolMessages = event.payload as any;
     let key = Backend.getPoolKey(initMessages.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let initMessagesAction: InitMessageAction = {
         key,
@@ -193,7 +193,7 @@ listen(INIT_POOL_MESSAGES_EVENT, (event) => {
 listen(APPEND_POOL_MESSAGE_EVENT, (event) => {
     let appendMessage: IPCAppendPoolMessage = event.payload as any;
     let key = Backend.getPoolKey(appendMessage.pool_id);
-    if (!key) return;
+    if (key == undefined) return;
 
     let appendMessageAction: AppendMessageAction = {
         key,

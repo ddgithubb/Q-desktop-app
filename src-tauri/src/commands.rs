@@ -1,8 +1,8 @@
 use crate::{poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER};
 
 #[tauri::command]
-pub async fn connect_to_pool(pool_id: String, _display_name: String) {
-    STORE_MANAGER._set_display_name(_display_name);
+pub async fn connect_to_pool(pool_id: String, display_name: String) {
+    STORE_MANAGER._set_display_name(display_name);
     POOL_MANAGER.connect_to_pool(pool_id).await;
 }
 

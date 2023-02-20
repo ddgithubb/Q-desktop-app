@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
-use log::info;
+use log::{info, debug};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_tungstenite::tungstenite::{self, Message as WSMessage};
@@ -150,7 +150,6 @@ impl SyncServerClient {
     async fn handle_ws_http_error(self: &Arc<SyncServerClient>) {
         info!("WS ERROR");
         self.close().await;
-        self.start_sync_server_client(); // test if this creates too fast of a loop
     }
 
     pub(super) fn start_sync_server_client(self: &Arc<SyncServerClient>) {
@@ -197,7 +196,8 @@ impl SyncServerClient {
                             continue;
                         }
 
-                        info!("WS MESSAGE {:?}", ss_msg);
+                        debug!("WS MESSAGE {:?}", ss_msg);
+
                         let ss_client_clone = self.clone();
                         tokio::spawn(async move {
                             ss_client_clone.handle_ss_message(ss_msg).await;
@@ -356,6 +356,7 @@ impl SyncServerClient {
 
                 self.heartbeat_timeout.store(true, Ordering::SeqCst);
 
+                // debug!("SEND WS HEARTBEAT");
                 if !self.send_ws_conn(heartbeat_buf.clone()).await {
                     break;
                 }

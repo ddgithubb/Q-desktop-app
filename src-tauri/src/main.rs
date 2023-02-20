@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::sync::Arc;
+use std::{sync::Arc, env};
 
 use app::{
     __cmd__connect_to_pool, __cmd__disconnect_from_pool, __cmd__download_file,
@@ -13,13 +13,17 @@ use app::{
         connect_to_pool, disconnect_from_pool, download_file, remove_file_download,
         retract_file_offer, add_file_offer, add_image_offer, send_text_message,
     },
-    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER,
+    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE,
 };
 use log::info;
 use tauri::Manager;
 
 #[tokio::main]
 async fn main() {
+    if !PRODUCTION_MODE {
+      env::set_var("RUST_LOG", "app=trace");
+    }
+
     env_logger::init();
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     tauri::Builder::default()

@@ -8,7 +8,7 @@ textarea {
     flex-grow: 1;
     flex-direction: column;
     padding: 0px;
-    height: 100%;
+    height: 100vh;
     overflow: hidden;
 }
 
