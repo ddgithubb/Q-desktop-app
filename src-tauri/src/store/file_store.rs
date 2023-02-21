@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, VecDeque},
     fs::{create_dir, read_dir, File},
     path::{Path, PathBuf},
-    time::{Instant, SystemTime},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
@@ -350,12 +350,13 @@ impl FileStore {
 
     pub fn create_valid_file_path(path: &mut PathBuf, file_name: &String) {
         path.push(file_name.clone());
+
         while Self::check_path_could_exist(path) {
             path.pop();
             path.push(format!(
                 "{}-{}",
+                SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
                 file_name.clone(),
-                Instant::now().elapsed().as_nanos()
             ));
         }
     }

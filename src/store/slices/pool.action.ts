@@ -1,4 +1,4 @@
-import { IPCInitPool } from "../../backend/backend.model";
+import { IPCInitPool, IPCOfflinePoolData } from "../../backend/backend.model";
 import { Pool, PoolConnectionState, DownloadProgressStatus, PoolNode } from "../../types/pool.model";
 import { PoolMessage, PoolFileInfo, PoolFileSeeders } from "../../types/pool.v1";
 import { PoolUserInfo } from "../../types/sync_server.v1";
@@ -10,6 +10,10 @@ export interface PoolsState {
 export interface PoolAction {
     key: number;
 }
+
+export interface OfflinePoolDataAction extends PoolAction {
+    offlineData: IPCOfflinePoolData;
+} 
 
 export interface InitPoolAction extends PoolAction {
     initPool: IPCInitPool

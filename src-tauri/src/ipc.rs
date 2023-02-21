@@ -23,6 +23,12 @@ pub struct IPCInitProfile {
 }
 
 #[derive(Clone, Serialize)]
+pub struct IPCOfflinePoolData {
+    file_offers: Vec<PoolFileInfo>,
+    messages: Vec<PoolMessage>,
+}
+
+#[derive(Clone, Serialize)]
 pub struct IPCPoolNode {
     pub node_id: String,
     pub user_id: String,

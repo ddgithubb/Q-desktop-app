@@ -16,6 +16,11 @@ export interface IPCInitProfile {
     device: PoolDeviceInfo,
 }
 
+export interface IPCOfflinePoolData {
+    file_offers: PoolFileInfo[],
+    messages: PoolMessage[],
+}
+
 export interface IPCPoolNode {
     node_id: string,
     user_id: string,

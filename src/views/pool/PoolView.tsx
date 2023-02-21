@@ -119,6 +119,8 @@ export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number 
             userAndDevices.activeDevices.set(activeNode.nodeID, activeNode);
         }
 
+        console.log(userMap, myNode, pool.activeNodes, myNodeID);
+
         return [ userMap, myNode ];
     }, [pool?.users, pool?.activeNodes]);
 

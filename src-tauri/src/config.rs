@@ -38,7 +38,6 @@ pub const MAX_POLL_COUNT_BEFORE_SEND: usize = CHUNKS_MISSING_SEND_INTERVAL_IN_SE
 pub const RECEIVED_MESSAGES_SIZE: usize = 100;
 pub const LATEST_MESSAGES_SIZE: usize = 50;
 
-pub const NODE_ID_LENGTH: usize = 10;
 pub const MESSAGE_ID_LENGTH: usize = 21;
 pub const FILE_ID_LENGTH: usize = 21;
 

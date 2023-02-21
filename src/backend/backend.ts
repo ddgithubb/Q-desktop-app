@@ -101,6 +101,10 @@ export class BackendCommands {
             directory: true,
             title: "Choose Save Directory",
         });
+        
+        if (!dirPath || typeof dirPath != 'string') {
+            return;
+        }
 
         invoke('download_file', { poolId, fileInfo, dirPath });
     }

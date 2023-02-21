@@ -8,7 +8,7 @@ import './PoolMessagesView.css';
 import DownloadIcon from '../../assets/download.png';
 import FileIcon from '../../assets/file.png';
 import { UserMapType } from './PoolView';
-import { PoolMessage, PoolFileInfo, PoolMessage_Type, PoolMediaType, PoolImageData } from '../../types/pool.v1';
+import { PoolMessage, PoolFileInfo, PoolMessage_Type, PoolMediaType, PoolImageData, PoolMessage_MediaOfferData } from '../../types/pool.v1';
 import { FeedMessage, NodeStatus, PoolFileDownload, PoolNodeStatus } from '../../types/pool.model';
 import { Backend, getTempAssetURL } from '../../backend/global';
 
@@ -149,17 +149,18 @@ function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewPa
                     } else if (feedMsg.msg) {
                         let messageContentElement: JSX.Element = <></>;
                         let msg = feedMsg.msg;
+                        let data = msg.data as any;
 
                         switch (msg.type) {
                             case PoolMessage_Type.TEXT:
-                                if (!msg.textData) return;
-                                let text: string = msg.textData.text;
+                                if (!data.textData) return;
+                                let text: string = data.textData.text;
                                 messageContentElement =
                                     <div className="pool-message-text" dangerouslySetInnerHTML={{ __html: sanitizeHtml(text, { allowedTags: ['br'] }) }} />
                                 break;
                             case PoolMessage_Type.FILE_OFFER:
-                                if (!msg.fileOfferData) return;
-                                let fileInfo: PoolFileInfo = msg.fileOfferData;
+                                if (!data.fileOfferData) return;
+                                let fileInfo: PoolFileInfo = data.fileOfferData;
                                 messageContentElement =
                                     <div className="pool-message-file-data-container">
                                         <div className="pool-message-file-container elipsify-container" onClick={() => downloadFile(fileInfo)}>
@@ -170,12 +171,14 @@ function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewPa
                                     </div>
                                 break;
                             case PoolMessage_Type.MEDIA_OFFER:
-                                if (!msg.mediaOfferData) return;
-                                switch (msg.mediaOfferData.mediaType) {
+                                if (!data.mediaOfferData) return;
+                                let mediaOfferData: PoolMessage_MediaOfferData = data.mediaOfferData;
+                                let mediaData = mediaOfferData.mediaData as any;
+                                switch (mediaOfferData.mediaType) {
                                     case PoolMediaType.IMAGE:
-                                        if (!msg.mediaOfferData.imageData || !msg.mediaOfferData.fileInfo) return;
-                                        let fileInfo: PoolFileInfo = msg.mediaOfferData.fileInfo;
-                                        let imageData: PoolImageData = msg.mediaOfferData.imageData;
+                                        if (!mediaData.imageData || !mediaOfferData.fileInfo) return;
+                                        let imageData: PoolImageData = mediaData.imageData;
+                                        let fileInfo: PoolFileInfo = mediaOfferData.fileInfo;
                                         messageContentElement =
                                             <>
                                                 <AsyncImage poolID={poolID} fileInfo={fileInfo} imageData={imageData} />
@@ -196,8 +199,8 @@ function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewPa
                         }
 
                         let hasHeader = (
-                            !poolMessagesView[index - 1].msg ||
                             index == 0 ||
+                            !poolMessagesView[index - 1].msg ||
                             msg.userId != poolMessagesView[index - 1].msg!.userId ||  // should be deviceID
                             msg.created - poolMessagesView[index - 1].msg!.created > CONSISTENT_MESSAGE_INTERVAL
                         )

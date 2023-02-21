@@ -32,7 +32,6 @@ export interface Pool {
     activeNodes: PoolNode[];
     downloadQueue: PoolFileDownload[];
     feed: FeedMessage[];
-    messagesLength: number;
 }
 
 export interface FeedMessage {

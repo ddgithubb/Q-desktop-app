@@ -414,12 +414,11 @@ impl PoolNet {
             data: msg_data,
         });
 
-        self.pool_conn
-            .distribute_message(MessagePackageBundle::create(
-                msg_pkg,
-                self.pool_state.node_id.clone(),
-            ))
-            .await;
+        self.handle_message(MessagePackageBundle::create(
+            msg_pkg,
+            self.pool_state.node_id.clone(),
+        ))
+        .await;
     }
 
     fn add_message(&self, msg: PoolMessage) {

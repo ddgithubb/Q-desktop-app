@@ -28,7 +28,8 @@ const profileSlice = createSlice({
     initialState: initialState,
     reducers: {
         initProfile(state: ProfileState, action: PayloadAction<ProfileState>) {
-            state = action.payload;
+            state.userInfo = action.payload.userInfo;
+            state.device = action.payload.device;
         },
     }
 });

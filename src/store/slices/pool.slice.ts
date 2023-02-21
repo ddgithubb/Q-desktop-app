@@ -4,9 +4,9 @@ import { Pool, PoolConnectionState, DownloadProgressStatus, PoolNode, FeedMessag
 import { PoolMessage, PoolFileInfo } from "../../types/pool.v1";
 import { PoolDeviceInfo, PoolUserInfo } from "../../types/sync_server.v1";
 import { PoolInfo, SSMessage_InitPoolData } from "../../types/sync_server.v1";
-import { PoolsState, PoolAction, UpdateConnectionStateAction, UpdateUserAction, RemoveUserAction, InitMessageAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction } from "./pool.action";
+import { PoolsState, PoolAction, UpdateConnectionStateAction, UpdateUserAction, RemoveUserAction, InitMessageAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction, OfflinePoolDataAction } from "./pool.action";
 
-const LATEST_MESSAGES_SIZE = 50;
+const MAX_FEED_SIZE = 50;
 
 const initialState: PoolsState = {
     pools: [],
@@ -28,16 +28,19 @@ const poolSlice = createSlice({
                     activeNodes: [],
                     downloadQueue: [],
                     feed: [],
-                    messagesLength: 0,
                 } as Pool)
             }
+        },
+        setOfflinePoolData(state: PoolsState, action: PayloadAction<OfflinePoolDataAction>) {
+            let pool = getPool(state, action);
+            
         },
         initPool(state: PoolsState, action: PayloadAction<InitPoolAction>) {
             let pool = getPool(state, action);
             let initPool = action.payload.initPool;
             pool.poolName = initPool.pool_info.poolName;
             pool.connectionState = PoolConnectionState.CONNECTED;
-                pool.users = initPool.pool_info.users;
+            pool.users = initPool.pool_info.users;
             pool.activeNodes = initPool.init_nodes.map((node) => {
                 return {
                     nodeID: node.node_id,
@@ -45,9 +48,6 @@ const poolSlice = createSlice({
                     fileOffers: [],
                 }
             });
-            pool.downloadQueue = [];
-            pool.feed = [];
-            pool.messagesLength = 0;
         },
         clearPool(state: PoolsState, action: PayloadAction<ClearPoolAction>) {
             let pool = getPool(state, action);
@@ -55,7 +55,6 @@ const poolSlice = createSlice({
             pool.activeNodes = [];
             pool.downloadQueue = [];
             pool.feed = [];
-            pool.messagesLength = 0;
         },
         updateConnectionState(state: PoolsState, action: PayloadAction<UpdateConnectionStateAction>) {
             let pool = getPool(state, action);
@@ -93,15 +92,13 @@ const poolSlice = createSlice({
                 };
                 return feedMsg;
             });
-            pool.messagesLength = pool.feed.length;
         },
         appendMessage(state: PoolsState, action: PayloadAction<AppendMessageAction>) {
             let pool = getPool(state, action);
             pool.feed.push({
                 msg: action.payload.message,
             });
-            pool.messagesLength++;
-            if (pool.messagesLength > LATEST_MESSAGES_SIZE) {
+            if (pool.feed.length > MAX_FEED_SIZE) {
                 pool.feed.shift();
             }
         },

@@ -61,13 +61,14 @@ export interface PoolMessage {
   type: PoolMessage_Type;
   userId: string;
   created: number;
-  nodeInfoData?: PoolMessage_NodeInfoData | undefined;
-  textData?: PoolMessage_TextData | undefined;
-  fileOfferData?: PoolFileInfo | undefined;
-  mediaOfferData?: PoolMessage_MediaOfferData | undefined;
-  fileRequestData?: PoolMessage_FileRequestData | undefined;
-  retractFileOfferData?: PoolMessage_RetractFileOfferData | undefined;
-  retractFileRequestData?: PoolMessage_RetractFileRequestData | undefined;
+  data?:
+    | { $case: "nodeInfoData"; nodeInfoData: PoolMessage_NodeInfoData }
+    | { $case: "textData"; textData: PoolMessage_TextData }
+    | { $case: "fileOfferData"; fileOfferData: PoolFileInfo }
+    | { $case: "mediaOfferData"; mediaOfferData: PoolMessage_MediaOfferData }
+    | { $case: "fileRequestData"; fileRequestData: PoolMessage_FileRequestData }
+    | { $case: "retractFileOfferData"; retractFileOfferData: PoolMessage_RetractFileOfferData }
+    | { $case: "retractFileRequestData"; retractFileRequestData: PoolMessage_RetractFileRequestData };
 }
 
 export enum PoolMessage_Type {
@@ -145,7 +146,7 @@ export interface PoolMessage_TextData {
 export interface PoolMessage_MediaOfferData {
   fileInfo: PoolFileInfo | undefined;
   mediaType: PoolMediaType;
-  imageData?: PoolImageData | undefined;
+  mediaData?: { $case: "imageData"; imageData: PoolImageData };
 }
 
 export interface PoolMessage_FileRequestData {
@@ -165,7 +166,7 @@ export interface PoolMessage_RetractFileRequestData {
 
 export interface PoolDirectMessage {
   type: PoolDirectMessage_DirectType;
-  latestReplyData?: PoolDirectMessage_LatestReplyData | undefined;
+  data?: { $case: "latestReplyData"; latestReplyData: PoolDirectMessage_LatestReplyData };
 }
 
 export enum PoolDirectMessage_DirectType {
@@ -494,19 +495,7 @@ export const PoolChunkRange = {
 };
 
 function createBasePoolMessage(): PoolMessage {
-  return {
-    msgId: "",
-    type: 0,
-    userId: "",
-    created: 0,
-    nodeInfoData: undefined,
-    textData: undefined,
-    fileOfferData: undefined,
-    mediaOfferData: undefined,
-    fileRequestData: undefined,
-    retractFileOfferData: undefined,
-    retractFileRequestData: undefined,
-  };
+  return { msgId: "", type: 0, userId: "", created: 0, data: undefined };
 }
 
 export const PoolMessage = {
@@ -523,26 +512,26 @@ export const PoolMessage = {
     if (message.created !== 0) {
       writer.uint32(32).uint64(message.created);
     }
-    if (message.nodeInfoData !== undefined) {
-      PoolMessage_NodeInfoData.encode(message.nodeInfoData, writer.uint32(42).fork()).ldelim();
+    if (message.data?.$case === "nodeInfoData") {
+      PoolMessage_NodeInfoData.encode(message.data.nodeInfoData, writer.uint32(42).fork()).ldelim();
     }
-    if (message.textData !== undefined) {
-      PoolMessage_TextData.encode(message.textData, writer.uint32(50).fork()).ldelim();
+    if (message.data?.$case === "textData") {
+      PoolMessage_TextData.encode(message.data.textData, writer.uint32(50).fork()).ldelim();
     }
-    if (message.fileOfferData !== undefined) {
-      PoolFileInfo.encode(message.fileOfferData, writer.uint32(58).fork()).ldelim();
+    if (message.data?.$case === "fileOfferData") {
+      PoolFileInfo.encode(message.data.fileOfferData, writer.uint32(58).fork()).ldelim();
     }
-    if (message.mediaOfferData !== undefined) {
-      PoolMessage_MediaOfferData.encode(message.mediaOfferData, writer.uint32(66).fork()).ldelim();
+    if (message.data?.$case === "mediaOfferData") {
+      PoolMessage_MediaOfferData.encode(message.data.mediaOfferData, writer.uint32(66).fork()).ldelim();
     }
-    if (message.fileRequestData !== undefined) {
-      PoolMessage_FileRequestData.encode(message.fileRequestData, writer.uint32(74).fork()).ldelim();
+    if (message.data?.$case === "fileRequestData") {
+      PoolMessage_FileRequestData.encode(message.data.fileRequestData, writer.uint32(74).fork()).ldelim();
     }
-    if (message.retractFileOfferData !== undefined) {
-      PoolMessage_RetractFileOfferData.encode(message.retractFileOfferData, writer.uint32(82).fork()).ldelim();
+    if (message.data?.$case === "retractFileOfferData") {
+      PoolMessage_RetractFileOfferData.encode(message.data.retractFileOfferData, writer.uint32(82).fork()).ldelim();
     }
-    if (message.retractFileRequestData !== undefined) {
-      PoolMessage_RetractFileRequestData.encode(message.retractFileRequestData, writer.uint32(90).fork()).ldelim();
+    if (message.data?.$case === "retractFileRequestData") {
+      PoolMessage_RetractFileRequestData.encode(message.data.retractFileRequestData, writer.uint32(90).fork()).ldelim();
     }
     return writer;
   },
@@ -567,25 +556,40 @@ export const PoolMessage = {
           message.created = longToNumber(reader.uint64() as Long);
           break;
         case 5:
-          message.nodeInfoData = PoolMessage_NodeInfoData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "nodeInfoData",
+            nodeInfoData: PoolMessage_NodeInfoData.decode(reader, reader.uint32()),
+          };
           break;
         case 6:
-          message.textData = PoolMessage_TextData.decode(reader, reader.uint32());
+          message.data = { $case: "textData", textData: PoolMessage_TextData.decode(reader, reader.uint32()) };
           break;
         case 7:
-          message.fileOfferData = PoolFileInfo.decode(reader, reader.uint32());
+          message.data = { $case: "fileOfferData", fileOfferData: PoolFileInfo.decode(reader, reader.uint32()) };
           break;
         case 8:
-          message.mediaOfferData = PoolMessage_MediaOfferData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "mediaOfferData",
+            mediaOfferData: PoolMessage_MediaOfferData.decode(reader, reader.uint32()),
+          };
           break;
         case 9:
-          message.fileRequestData = PoolMessage_FileRequestData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "fileRequestData",
+            fileRequestData: PoolMessage_FileRequestData.decode(reader, reader.uint32()),
+          };
           break;
         case 10:
-          message.retractFileOfferData = PoolMessage_RetractFileOfferData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "retractFileOfferData",
+            retractFileOfferData: PoolMessage_RetractFileOfferData.decode(reader, reader.uint32()),
+          };
           break;
         case 11:
-          message.retractFileRequestData = PoolMessage_RetractFileRequestData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "retractFileRequestData",
+            retractFileRequestData: PoolMessage_RetractFileRequestData.decode(reader, reader.uint32()),
+          };
           break;
         default:
           reader.skipType(tag & 7);
@@ -601,20 +605,26 @@ export const PoolMessage = {
       type: isSet(object.type) ? poolMessage_TypeFromJSON(object.type) : 0,
       userId: isSet(object.userId) ? String(object.userId) : "",
       created: isSet(object.created) ? Number(object.created) : 0,
-      nodeInfoData: isSet(object.nodeInfoData) ? PoolMessage_NodeInfoData.fromJSON(object.nodeInfoData) : undefined,
-      textData: isSet(object.textData) ? PoolMessage_TextData.fromJSON(object.textData) : undefined,
-      fileOfferData: isSet(object.fileOfferData) ? PoolFileInfo.fromJSON(object.fileOfferData) : undefined,
-      mediaOfferData: isSet(object.mediaOfferData)
-        ? PoolMessage_MediaOfferData.fromJSON(object.mediaOfferData)
-        : undefined,
-      fileRequestData: isSet(object.fileRequestData)
-        ? PoolMessage_FileRequestData.fromJSON(object.fileRequestData)
-        : undefined,
-      retractFileOfferData: isSet(object.retractFileOfferData)
-        ? PoolMessage_RetractFileOfferData.fromJSON(object.retractFileOfferData)
-        : undefined,
-      retractFileRequestData: isSet(object.retractFileRequestData)
-        ? PoolMessage_RetractFileRequestData.fromJSON(object.retractFileRequestData)
+      data: isSet(object.nodeInfoData)
+        ? { $case: "nodeInfoData", nodeInfoData: PoolMessage_NodeInfoData.fromJSON(object.nodeInfoData) }
+        : isSet(object.textData)
+        ? { $case: "textData", textData: PoolMessage_TextData.fromJSON(object.textData) }
+        : isSet(object.fileOfferData)
+        ? { $case: "fileOfferData", fileOfferData: PoolFileInfo.fromJSON(object.fileOfferData) }
+        : isSet(object.mediaOfferData)
+        ? { $case: "mediaOfferData", mediaOfferData: PoolMessage_MediaOfferData.fromJSON(object.mediaOfferData) }
+        : isSet(object.fileRequestData)
+        ? { $case: "fileRequestData", fileRequestData: PoolMessage_FileRequestData.fromJSON(object.fileRequestData) }
+        : isSet(object.retractFileOfferData)
+        ? {
+          $case: "retractFileOfferData",
+          retractFileOfferData: PoolMessage_RetractFileOfferData.fromJSON(object.retractFileOfferData),
+        }
+        : isSet(object.retractFileRequestData)
+        ? {
+          $case: "retractFileRequestData",
+          retractFileRequestData: PoolMessage_RetractFileRequestData.fromJSON(object.retractFileRequestData),
+        }
         : undefined,
     };
   },
@@ -625,24 +635,26 @@ export const PoolMessage = {
     message.type !== undefined && (obj.type = poolMessage_TypeToJSON(message.type));
     message.userId !== undefined && (obj.userId = message.userId);
     message.created !== undefined && (obj.created = Math.round(message.created));
-    message.nodeInfoData !== undefined &&
-      (obj.nodeInfoData = message.nodeInfoData ? PoolMessage_NodeInfoData.toJSON(message.nodeInfoData) : undefined);
-    message.textData !== undefined &&
-      (obj.textData = message.textData ? PoolMessage_TextData.toJSON(message.textData) : undefined);
-    message.fileOfferData !== undefined &&
-      (obj.fileOfferData = message.fileOfferData ? PoolFileInfo.toJSON(message.fileOfferData) : undefined);
-    message.mediaOfferData !== undefined && (obj.mediaOfferData = message.mediaOfferData
-      ? PoolMessage_MediaOfferData.toJSON(message.mediaOfferData)
+    message.data?.$case === "nodeInfoData" && (obj.nodeInfoData = message.data?.nodeInfoData
+      ? PoolMessage_NodeInfoData.toJSON(message.data?.nodeInfoData)
       : undefined);
-    message.fileRequestData !== undefined && (obj.fileRequestData = message.fileRequestData
-      ? PoolMessage_FileRequestData.toJSON(message.fileRequestData)
+    message.data?.$case === "textData" &&
+      (obj.textData = message.data?.textData ? PoolMessage_TextData.toJSON(message.data?.textData) : undefined);
+    message.data?.$case === "fileOfferData" &&
+      (obj.fileOfferData = message.data?.fileOfferData ? PoolFileInfo.toJSON(message.data?.fileOfferData) : undefined);
+    message.data?.$case === "mediaOfferData" && (obj.mediaOfferData = message.data?.mediaOfferData
+      ? PoolMessage_MediaOfferData.toJSON(message.data?.mediaOfferData)
       : undefined);
-    message.retractFileOfferData !== undefined && (obj.retractFileOfferData = message.retractFileOfferData
-      ? PoolMessage_RetractFileOfferData.toJSON(message.retractFileOfferData)
+    message.data?.$case === "fileRequestData" && (obj.fileRequestData = message.data?.fileRequestData
+      ? PoolMessage_FileRequestData.toJSON(message.data?.fileRequestData)
       : undefined);
-    message.retractFileRequestData !== undefined && (obj.retractFileRequestData = message.retractFileRequestData
-      ? PoolMessage_RetractFileRequestData.toJSON(message.retractFileRequestData)
+    message.data?.$case === "retractFileOfferData" && (obj.retractFileOfferData = message.data?.retractFileOfferData
+      ? PoolMessage_RetractFileOfferData.toJSON(message.data?.retractFileOfferData)
       : undefined);
+    message.data?.$case === "retractFileRequestData" &&
+      (obj.retractFileRequestData = message.data?.retractFileRequestData
+        ? PoolMessage_RetractFileRequestData.toJSON(message.data?.retractFileRequestData)
+        : undefined);
     return obj;
   },
 
@@ -652,28 +664,66 @@ export const PoolMessage = {
     message.type = object.type ?? 0;
     message.userId = object.userId ?? "";
     message.created = object.created ?? 0;
-    message.nodeInfoData = (object.nodeInfoData !== undefined && object.nodeInfoData !== null)
-      ? PoolMessage_NodeInfoData.fromPartial(object.nodeInfoData)
-      : undefined;
-    message.textData = (object.textData !== undefined && object.textData !== null)
-      ? PoolMessage_TextData.fromPartial(object.textData)
-      : undefined;
-    message.fileOfferData = (object.fileOfferData !== undefined && object.fileOfferData !== null)
-      ? PoolFileInfo.fromPartial(object.fileOfferData)
-      : undefined;
-    message.mediaOfferData = (object.mediaOfferData !== undefined && object.mediaOfferData !== null)
-      ? PoolMessage_MediaOfferData.fromPartial(object.mediaOfferData)
-      : undefined;
-    message.fileRequestData = (object.fileRequestData !== undefined && object.fileRequestData !== null)
-      ? PoolMessage_FileRequestData.fromPartial(object.fileRequestData)
-      : undefined;
-    message.retractFileOfferData = (object.retractFileOfferData !== undefined && object.retractFileOfferData !== null)
-      ? PoolMessage_RetractFileOfferData.fromPartial(object.retractFileOfferData)
-      : undefined;
-    message.retractFileRequestData =
-      (object.retractFileRequestData !== undefined && object.retractFileRequestData !== null)
-        ? PoolMessage_RetractFileRequestData.fromPartial(object.retractFileRequestData)
-        : undefined;
+    if (
+      object.data?.$case === "nodeInfoData" &&
+      object.data?.nodeInfoData !== undefined &&
+      object.data?.nodeInfoData !== null
+    ) {
+      message.data = {
+        $case: "nodeInfoData",
+        nodeInfoData: PoolMessage_NodeInfoData.fromPartial(object.data.nodeInfoData),
+      };
+    }
+    if (object.data?.$case === "textData" && object.data?.textData !== undefined && object.data?.textData !== null) {
+      message.data = { $case: "textData", textData: PoolMessage_TextData.fromPartial(object.data.textData) };
+    }
+    if (
+      object.data?.$case === "fileOfferData" &&
+      object.data?.fileOfferData !== undefined &&
+      object.data?.fileOfferData !== null
+    ) {
+      message.data = { $case: "fileOfferData", fileOfferData: PoolFileInfo.fromPartial(object.data.fileOfferData) };
+    }
+    if (
+      object.data?.$case === "mediaOfferData" &&
+      object.data?.mediaOfferData !== undefined &&
+      object.data?.mediaOfferData !== null
+    ) {
+      message.data = {
+        $case: "mediaOfferData",
+        mediaOfferData: PoolMessage_MediaOfferData.fromPartial(object.data.mediaOfferData),
+      };
+    }
+    if (
+      object.data?.$case === "fileRequestData" &&
+      object.data?.fileRequestData !== undefined &&
+      object.data?.fileRequestData !== null
+    ) {
+      message.data = {
+        $case: "fileRequestData",
+        fileRequestData: PoolMessage_FileRequestData.fromPartial(object.data.fileRequestData),
+      };
+    }
+    if (
+      object.data?.$case === "retractFileOfferData" &&
+      object.data?.retractFileOfferData !== undefined &&
+      object.data?.retractFileOfferData !== null
+    ) {
+      message.data = {
+        $case: "retractFileOfferData",
+        retractFileOfferData: PoolMessage_RetractFileOfferData.fromPartial(object.data.retractFileOfferData),
+      };
+    }
+    if (
+      object.data?.$case === "retractFileRequestData" &&
+      object.data?.retractFileRequestData !== undefined &&
+      object.data?.retractFileRequestData !== null
+    ) {
+      message.data = {
+        $case: "retractFileRequestData",
+        retractFileRequestData: PoolMessage_RetractFileRequestData.fromPartial(object.data.retractFileRequestData),
+      };
+    }
     return message;
   },
 };
@@ -779,7 +829,7 @@ export const PoolMessage_TextData = {
 };
 
 function createBasePoolMessage_MediaOfferData(): PoolMessage_MediaOfferData {
-  return { fileInfo: undefined, mediaType: 0, imageData: undefined };
+  return { fileInfo: undefined, mediaType: 0, mediaData: undefined };
 }
 
 export const PoolMessage_MediaOfferData = {
@@ -790,8 +840,8 @@ export const PoolMessage_MediaOfferData = {
     if (message.mediaType !== 0) {
       writer.uint32(16).int32(message.mediaType);
     }
-    if (message.imageData !== undefined) {
-      PoolImageData.encode(message.imageData, writer.uint32(26).fork()).ldelim();
+    if (message.mediaData?.$case === "imageData") {
+      PoolImageData.encode(message.mediaData.imageData, writer.uint32(26).fork()).ldelim();
     }
     return writer;
   },
@@ -810,7 +860,7 @@ export const PoolMessage_MediaOfferData = {
           message.mediaType = reader.int32() as any;
           break;
         case 3:
-          message.imageData = PoolImageData.decode(reader, reader.uint32());
+          message.mediaData = { $case: "imageData", imageData: PoolImageData.decode(reader, reader.uint32()) };
           break;
         default:
           reader.skipType(tag & 7);
@@ -824,7 +874,9 @@ export const PoolMessage_MediaOfferData = {
     return {
       fileInfo: isSet(object.fileInfo) ? PoolFileInfo.fromJSON(object.fileInfo) : undefined,
       mediaType: isSet(object.mediaType) ? poolMediaTypeFromJSON(object.mediaType) : 0,
-      imageData: isSet(object.imageData) ? PoolImageData.fromJSON(object.imageData) : undefined,
+      mediaData: isSet(object.imageData)
+        ? { $case: "imageData", imageData: PoolImageData.fromJSON(object.imageData) }
+        : undefined,
     };
   },
 
@@ -833,8 +885,8 @@ export const PoolMessage_MediaOfferData = {
     message.fileInfo !== undefined &&
       (obj.fileInfo = message.fileInfo ? PoolFileInfo.toJSON(message.fileInfo) : undefined);
     message.mediaType !== undefined && (obj.mediaType = poolMediaTypeToJSON(message.mediaType));
-    message.imageData !== undefined &&
-      (obj.imageData = message.imageData ? PoolImageData.toJSON(message.imageData) : undefined);
+    message.mediaData?.$case === "imageData" &&
+      (obj.imageData = message.mediaData?.imageData ? PoolImageData.toJSON(message.mediaData?.imageData) : undefined);
     return obj;
   },
 
@@ -844,9 +896,13 @@ export const PoolMessage_MediaOfferData = {
       ? PoolFileInfo.fromPartial(object.fileInfo)
       : undefined;
     message.mediaType = object.mediaType ?? 0;
-    message.imageData = (object.imageData !== undefined && object.imageData !== null)
-      ? PoolImageData.fromPartial(object.imageData)
-      : undefined;
+    if (
+      object.mediaData?.$case === "imageData" &&
+      object.mediaData?.imageData !== undefined &&
+      object.mediaData?.imageData !== null
+    ) {
+      message.mediaData = { $case: "imageData", imageData: PoolImageData.fromPartial(object.mediaData.imageData) };
+    }
     return message;
   },
 };
@@ -1038,7 +1094,7 @@ export const PoolMessage_RetractFileRequestData = {
 };
 
 function createBasePoolDirectMessage(): PoolDirectMessage {
-  return { type: 0, latestReplyData: undefined };
+  return { type: 0, data: undefined };
 }
 
 export const PoolDirectMessage = {
@@ -1046,8 +1102,8 @@ export const PoolDirectMessage = {
     if (message.type !== 0) {
       writer.uint32(8).int32(message.type);
     }
-    if (message.latestReplyData !== undefined) {
-      PoolDirectMessage_LatestReplyData.encode(message.latestReplyData, writer.uint32(18).fork()).ldelim();
+    if (message.data?.$case === "latestReplyData") {
+      PoolDirectMessage_LatestReplyData.encode(message.data.latestReplyData, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
@@ -1063,7 +1119,10 @@ export const PoolDirectMessage = {
           message.type = reader.int32() as any;
           break;
         case 2:
-          message.latestReplyData = PoolDirectMessage_LatestReplyData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "latestReplyData",
+            latestReplyData: PoolDirectMessage_LatestReplyData.decode(reader, reader.uint32()),
+          };
           break;
         default:
           reader.skipType(tag & 7);
@@ -1076,8 +1135,11 @@ export const PoolDirectMessage = {
   fromJSON(object: any): PoolDirectMessage {
     return {
       type: isSet(object.type) ? poolDirectMessage_DirectTypeFromJSON(object.type) : 0,
-      latestReplyData: isSet(object.latestReplyData)
-        ? PoolDirectMessage_LatestReplyData.fromJSON(object.latestReplyData)
+      data: isSet(object.latestReplyData)
+        ? {
+          $case: "latestReplyData",
+          latestReplyData: PoolDirectMessage_LatestReplyData.fromJSON(object.latestReplyData),
+        }
         : undefined,
     };
   },
@@ -1085,8 +1147,8 @@ export const PoolDirectMessage = {
   toJSON(message: PoolDirectMessage): unknown {
     const obj: any = {};
     message.type !== undefined && (obj.type = poolDirectMessage_DirectTypeToJSON(message.type));
-    message.latestReplyData !== undefined && (obj.latestReplyData = message.latestReplyData
-      ? PoolDirectMessage_LatestReplyData.toJSON(message.latestReplyData)
+    message.data?.$case === "latestReplyData" && (obj.latestReplyData = message.data?.latestReplyData
+      ? PoolDirectMessage_LatestReplyData.toJSON(message.data?.latestReplyData)
       : undefined);
     return obj;
   },
@@ -1094,9 +1156,16 @@ export const PoolDirectMessage = {
   fromPartial<I extends Exact<DeepPartial<PoolDirectMessage>, I>>(object: I): PoolDirectMessage {
     const message = createBasePoolDirectMessage();
     message.type = object.type ?? 0;
-    message.latestReplyData = (object.latestReplyData !== undefined && object.latestReplyData !== null)
-      ? PoolDirectMessage_LatestReplyData.fromPartial(object.latestReplyData)
-      : undefined;
+    if (
+      object.data?.$case === "latestReplyData" &&
+      object.data?.latestReplyData !== undefined &&
+      object.data?.latestReplyData !== null
+    ) {
+      message.data = {
+        $case: "latestReplyData",
+        latestReplyData: PoolDirectMessage_LatestReplyData.fromPartial(object.data.latestReplyData),
+      };
+    }
     return message;
   },
 };
@@ -1524,6 +1593,7 @@ type Builtin = Date | Function | Uint8Array | string | number | boolean | undefi
 
 export type DeepPartial<T> = T extends Builtin ? T
   : T extends Array<infer U> ? Array<DeepPartial<U>> : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends { $case: string } ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { $case: T["$case"] }
   : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
 

@@ -64,19 +64,20 @@ export interface PoolInfo {
 export interface SSMessage {
   op: SSMessage_Op;
   key: string;
-  successResponseData?: SSMessage_SuccessResponseData | undefined;
-  updateNodePositionData?: SSMessage_UpdateNodePositionData | undefined;
-  connectNodeData?: SSMessage_ConnectNodeData | undefined;
-  disconnectNodeData?: SSMessage_DisconnectNodeData | undefined;
-  reportNodeData?: SSMessage_ReportNodeData | undefined;
-  sdpOfferData?: SSMessage_SDPOfferData | undefined;
-  sdpResponseData?: SSMessage_SDPResponseData | undefined;
-  verifyNodeConnectedData?: SSMessage_VerifyNodeConnectedData | undefined;
-  initPoolData?: SSMessage_InitPoolData | undefined;
-  addNodeData?: SSMessage_AddNodeData | undefined;
-  removeNodeData?: SSMessage_RemoveNodeData | undefined;
-  updateUserData?: SSMessage_UpdateUserData | undefined;
-  removeUserData?: SSMessage_RemoveUserData | undefined;
+  data?:
+    | { $case: "successResponseData"; successResponseData: SSMessage_SuccessResponseData }
+    | { $case: "updateNodePositionData"; updateNodePositionData: SSMessage_UpdateNodePositionData }
+    | { $case: "connectNodeData"; connectNodeData: SSMessage_ConnectNodeData }
+    | { $case: "disconnectNodeData"; disconnectNodeData: SSMessage_DisconnectNodeData }
+    | { $case: "reportNodeData"; reportNodeData: SSMessage_ReportNodeData }
+    | { $case: "sdpOfferData"; sdpOfferData: SSMessage_SDPOfferData }
+    | { $case: "sdpResponseData"; sdpResponseData: SSMessage_SDPResponseData }
+    | { $case: "verifyNodeConnectedData"; verifyNodeConnectedData: SSMessage_VerifyNodeConnectedData }
+    | { $case: "initPoolData"; initPoolData: SSMessage_InitPoolData }
+    | { $case: "addNodeData"; addNodeData: SSMessage_AddNodeData }
+    | { $case: "removeNodeData"; removeNodeData: SSMessage_RemoveNodeData }
+    | { $case: "updateUserData"; updateUserData: SSMessage_UpdateUserData }
+    | { $case: "removeUserData"; removeUserData: SSMessage_RemoveUserData };
 }
 
 export enum SSMessage_Op {
@@ -557,23 +558,7 @@ export const PoolInfo = {
 };
 
 function createBaseSSMessage(): SSMessage {
-  return {
-    op: 0,
-    key: "",
-    successResponseData: undefined,
-    updateNodePositionData: undefined,
-    connectNodeData: undefined,
-    disconnectNodeData: undefined,
-    reportNodeData: undefined,
-    sdpOfferData: undefined,
-    sdpResponseData: undefined,
-    verifyNodeConnectedData: undefined,
-    initPoolData: undefined,
-    addNodeData: undefined,
-    removeNodeData: undefined,
-    updateUserData: undefined,
-    removeUserData: undefined,
-  };
+  return { op: 0, key: "", data: undefined };
 }
 
 export const SSMessage = {
@@ -584,44 +569,44 @@ export const SSMessage = {
     if (message.key !== "") {
       writer.uint32(18).string(message.key);
     }
-    if (message.successResponseData !== undefined) {
-      SSMessage_SuccessResponseData.encode(message.successResponseData, writer.uint32(26).fork()).ldelim();
+    if (message.data?.$case === "successResponseData") {
+      SSMessage_SuccessResponseData.encode(message.data.successResponseData, writer.uint32(26).fork()).ldelim();
     }
-    if (message.updateNodePositionData !== undefined) {
-      SSMessage_UpdateNodePositionData.encode(message.updateNodePositionData, writer.uint32(34).fork()).ldelim();
+    if (message.data?.$case === "updateNodePositionData") {
+      SSMessage_UpdateNodePositionData.encode(message.data.updateNodePositionData, writer.uint32(34).fork()).ldelim();
     }
-    if (message.connectNodeData !== undefined) {
-      SSMessage_ConnectNodeData.encode(message.connectNodeData, writer.uint32(42).fork()).ldelim();
+    if (message.data?.$case === "connectNodeData") {
+      SSMessage_ConnectNodeData.encode(message.data.connectNodeData, writer.uint32(42).fork()).ldelim();
     }
-    if (message.disconnectNodeData !== undefined) {
-      SSMessage_DisconnectNodeData.encode(message.disconnectNodeData, writer.uint32(50).fork()).ldelim();
+    if (message.data?.$case === "disconnectNodeData") {
+      SSMessage_DisconnectNodeData.encode(message.data.disconnectNodeData, writer.uint32(50).fork()).ldelim();
     }
-    if (message.reportNodeData !== undefined) {
-      SSMessage_ReportNodeData.encode(message.reportNodeData, writer.uint32(58).fork()).ldelim();
+    if (message.data?.$case === "reportNodeData") {
+      SSMessage_ReportNodeData.encode(message.data.reportNodeData, writer.uint32(58).fork()).ldelim();
     }
-    if (message.sdpOfferData !== undefined) {
-      SSMessage_SDPOfferData.encode(message.sdpOfferData, writer.uint32(66).fork()).ldelim();
+    if (message.data?.$case === "sdpOfferData") {
+      SSMessage_SDPOfferData.encode(message.data.sdpOfferData, writer.uint32(66).fork()).ldelim();
     }
-    if (message.sdpResponseData !== undefined) {
-      SSMessage_SDPResponseData.encode(message.sdpResponseData, writer.uint32(74).fork()).ldelim();
+    if (message.data?.$case === "sdpResponseData") {
+      SSMessage_SDPResponseData.encode(message.data.sdpResponseData, writer.uint32(74).fork()).ldelim();
     }
-    if (message.verifyNodeConnectedData !== undefined) {
-      SSMessage_VerifyNodeConnectedData.encode(message.verifyNodeConnectedData, writer.uint32(82).fork()).ldelim();
+    if (message.data?.$case === "verifyNodeConnectedData") {
+      SSMessage_VerifyNodeConnectedData.encode(message.data.verifyNodeConnectedData, writer.uint32(82).fork()).ldelim();
     }
-    if (message.initPoolData !== undefined) {
-      SSMessage_InitPoolData.encode(message.initPoolData, writer.uint32(90).fork()).ldelim();
+    if (message.data?.$case === "initPoolData") {
+      SSMessage_InitPoolData.encode(message.data.initPoolData, writer.uint32(90).fork()).ldelim();
     }
-    if (message.addNodeData !== undefined) {
-      SSMessage_AddNodeData.encode(message.addNodeData, writer.uint32(98).fork()).ldelim();
+    if (message.data?.$case === "addNodeData") {
+      SSMessage_AddNodeData.encode(message.data.addNodeData, writer.uint32(98).fork()).ldelim();
     }
-    if (message.removeNodeData !== undefined) {
-      SSMessage_RemoveNodeData.encode(message.removeNodeData, writer.uint32(106).fork()).ldelim();
+    if (message.data?.$case === "removeNodeData") {
+      SSMessage_RemoveNodeData.encode(message.data.removeNodeData, writer.uint32(106).fork()).ldelim();
     }
-    if (message.updateUserData !== undefined) {
-      SSMessage_UpdateUserData.encode(message.updateUserData, writer.uint32(114).fork()).ldelim();
+    if (message.data?.$case === "updateUserData") {
+      SSMessage_UpdateUserData.encode(message.data.updateUserData, writer.uint32(114).fork()).ldelim();
     }
-    if (message.removeUserData !== undefined) {
-      SSMessage_RemoveUserData.encode(message.removeUserData, writer.uint32(122).fork()).ldelim();
+    if (message.data?.$case === "removeUserData") {
+      SSMessage_RemoveUserData.encode(message.data.removeUserData, writer.uint32(122).fork()).ldelim();
     }
     return writer;
   },
@@ -640,43 +625,79 @@ export const SSMessage = {
           message.key = reader.string();
           break;
         case 3:
-          message.successResponseData = SSMessage_SuccessResponseData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "successResponseData",
+            successResponseData: SSMessage_SuccessResponseData.decode(reader, reader.uint32()),
+          };
           break;
         case 4:
-          message.updateNodePositionData = SSMessage_UpdateNodePositionData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "updateNodePositionData",
+            updateNodePositionData: SSMessage_UpdateNodePositionData.decode(reader, reader.uint32()),
+          };
           break;
         case 5:
-          message.connectNodeData = SSMessage_ConnectNodeData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "connectNodeData",
+            connectNodeData: SSMessage_ConnectNodeData.decode(reader, reader.uint32()),
+          };
           break;
         case 6:
-          message.disconnectNodeData = SSMessage_DisconnectNodeData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "disconnectNodeData",
+            disconnectNodeData: SSMessage_DisconnectNodeData.decode(reader, reader.uint32()),
+          };
           break;
         case 7:
-          message.reportNodeData = SSMessage_ReportNodeData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "reportNodeData",
+            reportNodeData: SSMessage_ReportNodeData.decode(reader, reader.uint32()),
+          };
           break;
         case 8:
-          message.sdpOfferData = SSMessage_SDPOfferData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "sdpOfferData",
+            sdpOfferData: SSMessage_SDPOfferData.decode(reader, reader.uint32()),
+          };
           break;
         case 9:
-          message.sdpResponseData = SSMessage_SDPResponseData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "sdpResponseData",
+            sdpResponseData: SSMessage_SDPResponseData.decode(reader, reader.uint32()),
+          };
           break;
         case 10:
-          message.verifyNodeConnectedData = SSMessage_VerifyNodeConnectedData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "verifyNodeConnectedData",
+            verifyNodeConnectedData: SSMessage_VerifyNodeConnectedData.decode(reader, reader.uint32()),
+          };
           break;
         case 11:
-          message.initPoolData = SSMessage_InitPoolData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "initPoolData",
+            initPoolData: SSMessage_InitPoolData.decode(reader, reader.uint32()),
+          };
           break;
         case 12:
-          message.addNodeData = SSMessage_AddNodeData.decode(reader, reader.uint32());
+          message.data = { $case: "addNodeData", addNodeData: SSMessage_AddNodeData.decode(reader, reader.uint32()) };
           break;
         case 13:
-          message.removeNodeData = SSMessage_RemoveNodeData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "removeNodeData",
+            removeNodeData: SSMessage_RemoveNodeData.decode(reader, reader.uint32()),
+          };
           break;
         case 14:
-          message.updateUserData = SSMessage_UpdateUserData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "updateUserData",
+            updateUserData: SSMessage_UpdateUserData.decode(reader, reader.uint32()),
+          };
           break;
         case 15:
-          message.removeUserData = SSMessage_RemoveUserData.decode(reader, reader.uint32());
+          message.data = {
+            $case: "removeUserData",
+            removeUserData: SSMessage_RemoveUserData.decode(reader, reader.uint32()),
+          };
           break;
         default:
           reader.skipType(tag & 7);
@@ -690,38 +711,44 @@ export const SSMessage = {
     return {
       op: isSet(object.op) ? sSMessage_OpFromJSON(object.op) : 0,
       key: isSet(object.key) ? String(object.key) : "",
-      successResponseData: isSet(object.successResponseData)
-        ? SSMessage_SuccessResponseData.fromJSON(object.successResponseData)
-        : undefined,
-      updateNodePositionData: isSet(object.updateNodePositionData)
-        ? SSMessage_UpdateNodePositionData.fromJSON(object.updateNodePositionData)
-        : undefined,
-      connectNodeData: isSet(object.connectNodeData)
-        ? SSMessage_ConnectNodeData.fromJSON(object.connectNodeData)
-        : undefined,
-      disconnectNodeData: isSet(object.disconnectNodeData)
-        ? SSMessage_DisconnectNodeData.fromJSON(object.disconnectNodeData)
-        : undefined,
-      reportNodeData: isSet(object.reportNodeData)
-        ? SSMessage_ReportNodeData.fromJSON(object.reportNodeData)
-        : undefined,
-      sdpOfferData: isSet(object.sdpOfferData) ? SSMessage_SDPOfferData.fromJSON(object.sdpOfferData) : undefined,
-      sdpResponseData: isSet(object.sdpResponseData)
-        ? SSMessage_SDPResponseData.fromJSON(object.sdpResponseData)
-        : undefined,
-      verifyNodeConnectedData: isSet(object.verifyNodeConnectedData)
-        ? SSMessage_VerifyNodeConnectedData.fromJSON(object.verifyNodeConnectedData)
-        : undefined,
-      initPoolData: isSet(object.initPoolData) ? SSMessage_InitPoolData.fromJSON(object.initPoolData) : undefined,
-      addNodeData: isSet(object.addNodeData) ? SSMessage_AddNodeData.fromJSON(object.addNodeData) : undefined,
-      removeNodeData: isSet(object.removeNodeData)
-        ? SSMessage_RemoveNodeData.fromJSON(object.removeNodeData)
-        : undefined,
-      updateUserData: isSet(object.updateUserData)
-        ? SSMessage_UpdateUserData.fromJSON(object.updateUserData)
-        : undefined,
-      removeUserData: isSet(object.removeUserData)
-        ? SSMessage_RemoveUserData.fromJSON(object.removeUserData)
+      data: isSet(object.successResponseData)
+        ? {
+          $case: "successResponseData",
+          successResponseData: SSMessage_SuccessResponseData.fromJSON(object.successResponseData),
+        }
+        : isSet(object.updateNodePositionData)
+        ? {
+          $case: "updateNodePositionData",
+          updateNodePositionData: SSMessage_UpdateNodePositionData.fromJSON(object.updateNodePositionData),
+        }
+        : isSet(object.connectNodeData)
+        ? { $case: "connectNodeData", connectNodeData: SSMessage_ConnectNodeData.fromJSON(object.connectNodeData) }
+        : isSet(object.disconnectNodeData)
+        ? {
+          $case: "disconnectNodeData",
+          disconnectNodeData: SSMessage_DisconnectNodeData.fromJSON(object.disconnectNodeData),
+        }
+        : isSet(object.reportNodeData)
+        ? { $case: "reportNodeData", reportNodeData: SSMessage_ReportNodeData.fromJSON(object.reportNodeData) }
+        : isSet(object.sdpOfferData)
+        ? { $case: "sdpOfferData", sdpOfferData: SSMessage_SDPOfferData.fromJSON(object.sdpOfferData) }
+        : isSet(object.sdpResponseData)
+        ? { $case: "sdpResponseData", sdpResponseData: SSMessage_SDPResponseData.fromJSON(object.sdpResponseData) }
+        : isSet(object.verifyNodeConnectedData)
+        ? {
+          $case: "verifyNodeConnectedData",
+          verifyNodeConnectedData: SSMessage_VerifyNodeConnectedData.fromJSON(object.verifyNodeConnectedData),
+        }
+        : isSet(object.initPoolData)
+        ? { $case: "initPoolData", initPoolData: SSMessage_InitPoolData.fromJSON(object.initPoolData) }
+        : isSet(object.addNodeData)
+        ? { $case: "addNodeData", addNodeData: SSMessage_AddNodeData.fromJSON(object.addNodeData) }
+        : isSet(object.removeNodeData)
+        ? { $case: "removeNodeData", removeNodeData: SSMessage_RemoveNodeData.fromJSON(object.removeNodeData) }
+        : isSet(object.updateUserData)
+        ? { $case: "updateUserData", updateUserData: SSMessage_UpdateUserData.fromJSON(object.updateUserData) }
+        : isSet(object.removeUserData)
+        ? { $case: "removeUserData", removeUserData: SSMessage_RemoveUserData.fromJSON(object.removeUserData) }
         : undefined,
     };
   },
@@ -730,46 +757,48 @@ export const SSMessage = {
     const obj: any = {};
     message.op !== undefined && (obj.op = sSMessage_OpToJSON(message.op));
     message.key !== undefined && (obj.key = message.key);
-    message.successResponseData !== undefined && (obj.successResponseData = message.successResponseData
-      ? SSMessage_SuccessResponseData.toJSON(message.successResponseData)
+    message.data?.$case === "successResponseData" && (obj.successResponseData = message.data?.successResponseData
+      ? SSMessage_SuccessResponseData.toJSON(message.data?.successResponseData)
       : undefined);
-    message.updateNodePositionData !== undefined && (obj.updateNodePositionData = message.updateNodePositionData
-      ? SSMessage_UpdateNodePositionData.toJSON(message.updateNodePositionData)
-      : undefined);
-    message.connectNodeData !== undefined && (obj.connectNodeData = message.connectNodeData
-      ? SSMessage_ConnectNodeData.toJSON(message.connectNodeData)
-      : undefined);
-    message.disconnectNodeData !== undefined && (obj.disconnectNodeData = message.disconnectNodeData
-      ? SSMessage_DisconnectNodeData.toJSON(message.disconnectNodeData)
-      : undefined);
-    message.reportNodeData !== undefined &&
-      (obj.reportNodeData = message.reportNodeData
-        ? SSMessage_ReportNodeData.toJSON(message.reportNodeData)
+    message.data?.$case === "updateNodePositionData" &&
+      (obj.updateNodePositionData = message.data?.updateNodePositionData
+        ? SSMessage_UpdateNodePositionData.toJSON(message.data?.updateNodePositionData)
         : undefined);
-    message.sdpOfferData !== undefined &&
-      (obj.sdpOfferData = message.sdpOfferData ? SSMessage_SDPOfferData.toJSON(message.sdpOfferData) : undefined);
-    message.sdpResponseData !== undefined && (obj.sdpResponseData = message.sdpResponseData
-      ? SSMessage_SDPResponseData.toJSON(message.sdpResponseData)
+    message.data?.$case === "connectNodeData" && (obj.connectNodeData = message.data?.connectNodeData
+      ? SSMessage_ConnectNodeData.toJSON(message.data?.connectNodeData)
       : undefined);
-    message.verifyNodeConnectedData !== undefined && (obj.verifyNodeConnectedData = message.verifyNodeConnectedData
-      ? SSMessage_VerifyNodeConnectedData.toJSON(message.verifyNodeConnectedData)
+    message.data?.$case === "disconnectNodeData" && (obj.disconnectNodeData = message.data?.disconnectNodeData
+      ? SSMessage_DisconnectNodeData.toJSON(message.data?.disconnectNodeData)
       : undefined);
-    message.initPoolData !== undefined &&
-      (obj.initPoolData = message.initPoolData ? SSMessage_InitPoolData.toJSON(message.initPoolData) : undefined);
-    message.addNodeData !== undefined &&
-      (obj.addNodeData = message.addNodeData ? SSMessage_AddNodeData.toJSON(message.addNodeData) : undefined);
-    message.removeNodeData !== undefined &&
-      (obj.removeNodeData = message.removeNodeData
-        ? SSMessage_RemoveNodeData.toJSON(message.removeNodeData)
+    message.data?.$case === "reportNodeData" && (obj.reportNodeData = message.data?.reportNodeData
+      ? SSMessage_ReportNodeData.toJSON(message.data?.reportNodeData)
+      : undefined);
+    message.data?.$case === "sdpOfferData" && (obj.sdpOfferData = message.data?.sdpOfferData
+      ? SSMessage_SDPOfferData.toJSON(message.data?.sdpOfferData)
+      : undefined);
+    message.data?.$case === "sdpResponseData" && (obj.sdpResponseData = message.data?.sdpResponseData
+      ? SSMessage_SDPResponseData.toJSON(message.data?.sdpResponseData)
+      : undefined);
+    message.data?.$case === "verifyNodeConnectedData" &&
+      (obj.verifyNodeConnectedData = message.data?.verifyNodeConnectedData
+        ? SSMessage_VerifyNodeConnectedData.toJSON(message.data?.verifyNodeConnectedData)
         : undefined);
-    message.updateUserData !== undefined &&
-      (obj.updateUserData = message.updateUserData
-        ? SSMessage_UpdateUserData.toJSON(message.updateUserData)
+    message.data?.$case === "initPoolData" && (obj.initPoolData = message.data?.initPoolData
+      ? SSMessage_InitPoolData.toJSON(message.data?.initPoolData)
+      : undefined);
+    message.data?.$case === "addNodeData" &&
+      (obj.addNodeData = message.data?.addNodeData
+        ? SSMessage_AddNodeData.toJSON(message.data?.addNodeData)
         : undefined);
-    message.removeUserData !== undefined &&
-      (obj.removeUserData = message.removeUserData
-        ? SSMessage_RemoveUserData.toJSON(message.removeUserData)
-        : undefined);
+    message.data?.$case === "removeNodeData" && (obj.removeNodeData = message.data?.removeNodeData
+      ? SSMessage_RemoveNodeData.toJSON(message.data?.removeNodeData)
+      : undefined);
+    message.data?.$case === "updateUserData" && (obj.updateUserData = message.data?.updateUserData
+      ? SSMessage_UpdateUserData.toJSON(message.data?.updateUserData)
+      : undefined);
+    message.data?.$case === "removeUserData" && (obj.removeUserData = message.data?.removeUserData
+      ? SSMessage_RemoveUserData.toJSON(message.data?.removeUserData)
+      : undefined);
     return obj;
   },
 
@@ -777,47 +806,133 @@ export const SSMessage = {
     const message = createBaseSSMessage();
     message.op = object.op ?? 0;
     message.key = object.key ?? "";
-    message.successResponseData = (object.successResponseData !== undefined && object.successResponseData !== null)
-      ? SSMessage_SuccessResponseData.fromPartial(object.successResponseData)
-      : undefined;
-    message.updateNodePositionData =
-      (object.updateNodePositionData !== undefined && object.updateNodePositionData !== null)
-        ? SSMessage_UpdateNodePositionData.fromPartial(object.updateNodePositionData)
-        : undefined;
-    message.connectNodeData = (object.connectNodeData !== undefined && object.connectNodeData !== null)
-      ? SSMessage_ConnectNodeData.fromPartial(object.connectNodeData)
-      : undefined;
-    message.disconnectNodeData = (object.disconnectNodeData !== undefined && object.disconnectNodeData !== null)
-      ? SSMessage_DisconnectNodeData.fromPartial(object.disconnectNodeData)
-      : undefined;
-    message.reportNodeData = (object.reportNodeData !== undefined && object.reportNodeData !== null)
-      ? SSMessage_ReportNodeData.fromPartial(object.reportNodeData)
-      : undefined;
-    message.sdpOfferData = (object.sdpOfferData !== undefined && object.sdpOfferData !== null)
-      ? SSMessage_SDPOfferData.fromPartial(object.sdpOfferData)
-      : undefined;
-    message.sdpResponseData = (object.sdpResponseData !== undefined && object.sdpResponseData !== null)
-      ? SSMessage_SDPResponseData.fromPartial(object.sdpResponseData)
-      : undefined;
-    message.verifyNodeConnectedData =
-      (object.verifyNodeConnectedData !== undefined && object.verifyNodeConnectedData !== null)
-        ? SSMessage_VerifyNodeConnectedData.fromPartial(object.verifyNodeConnectedData)
-        : undefined;
-    message.initPoolData = (object.initPoolData !== undefined && object.initPoolData !== null)
-      ? SSMessage_InitPoolData.fromPartial(object.initPoolData)
-      : undefined;
-    message.addNodeData = (object.addNodeData !== undefined && object.addNodeData !== null)
-      ? SSMessage_AddNodeData.fromPartial(object.addNodeData)
-      : undefined;
-    message.removeNodeData = (object.removeNodeData !== undefined && object.removeNodeData !== null)
-      ? SSMessage_RemoveNodeData.fromPartial(object.removeNodeData)
-      : undefined;
-    message.updateUserData = (object.updateUserData !== undefined && object.updateUserData !== null)
-      ? SSMessage_UpdateUserData.fromPartial(object.updateUserData)
-      : undefined;
-    message.removeUserData = (object.removeUserData !== undefined && object.removeUserData !== null)
-      ? SSMessage_RemoveUserData.fromPartial(object.removeUserData)
-      : undefined;
+    if (
+      object.data?.$case === "successResponseData" &&
+      object.data?.successResponseData !== undefined &&
+      object.data?.successResponseData !== null
+    ) {
+      message.data = {
+        $case: "successResponseData",
+        successResponseData: SSMessage_SuccessResponseData.fromPartial(object.data.successResponseData),
+      };
+    }
+    if (
+      object.data?.$case === "updateNodePositionData" &&
+      object.data?.updateNodePositionData !== undefined &&
+      object.data?.updateNodePositionData !== null
+    ) {
+      message.data = {
+        $case: "updateNodePositionData",
+        updateNodePositionData: SSMessage_UpdateNodePositionData.fromPartial(object.data.updateNodePositionData),
+      };
+    }
+    if (
+      object.data?.$case === "connectNodeData" &&
+      object.data?.connectNodeData !== undefined &&
+      object.data?.connectNodeData !== null
+    ) {
+      message.data = {
+        $case: "connectNodeData",
+        connectNodeData: SSMessage_ConnectNodeData.fromPartial(object.data.connectNodeData),
+      };
+    }
+    if (
+      object.data?.$case === "disconnectNodeData" &&
+      object.data?.disconnectNodeData !== undefined &&
+      object.data?.disconnectNodeData !== null
+    ) {
+      message.data = {
+        $case: "disconnectNodeData",
+        disconnectNodeData: SSMessage_DisconnectNodeData.fromPartial(object.data.disconnectNodeData),
+      };
+    }
+    if (
+      object.data?.$case === "reportNodeData" &&
+      object.data?.reportNodeData !== undefined &&
+      object.data?.reportNodeData !== null
+    ) {
+      message.data = {
+        $case: "reportNodeData",
+        reportNodeData: SSMessage_ReportNodeData.fromPartial(object.data.reportNodeData),
+      };
+    }
+    if (
+      object.data?.$case === "sdpOfferData" &&
+      object.data?.sdpOfferData !== undefined &&
+      object.data?.sdpOfferData !== null
+    ) {
+      message.data = {
+        $case: "sdpOfferData",
+        sdpOfferData: SSMessage_SDPOfferData.fromPartial(object.data.sdpOfferData),
+      };
+    }
+    if (
+      object.data?.$case === "sdpResponseData" &&
+      object.data?.sdpResponseData !== undefined &&
+      object.data?.sdpResponseData !== null
+    ) {
+      message.data = {
+        $case: "sdpResponseData",
+        sdpResponseData: SSMessage_SDPResponseData.fromPartial(object.data.sdpResponseData),
+      };
+    }
+    if (
+      object.data?.$case === "verifyNodeConnectedData" &&
+      object.data?.verifyNodeConnectedData !== undefined &&
+      object.data?.verifyNodeConnectedData !== null
+    ) {
+      message.data = {
+        $case: "verifyNodeConnectedData",
+        verifyNodeConnectedData: SSMessage_VerifyNodeConnectedData.fromPartial(object.data.verifyNodeConnectedData),
+      };
+    }
+    if (
+      object.data?.$case === "initPoolData" &&
+      object.data?.initPoolData !== undefined &&
+      object.data?.initPoolData !== null
+    ) {
+      message.data = {
+        $case: "initPoolData",
+        initPoolData: SSMessage_InitPoolData.fromPartial(object.data.initPoolData),
+      };
+    }
+    if (
+      object.data?.$case === "addNodeData" &&
+      object.data?.addNodeData !== undefined &&
+      object.data?.addNodeData !== null
+    ) {
+      message.data = { $case: "addNodeData", addNodeData: SSMessage_AddNodeData.fromPartial(object.data.addNodeData) };
+    }
+    if (
+      object.data?.$case === "removeNodeData" &&
+      object.data?.removeNodeData !== undefined &&
+      object.data?.removeNodeData !== null
+    ) {
+      message.data = {
+        $case: "removeNodeData",
+        removeNodeData: SSMessage_RemoveNodeData.fromPartial(object.data.removeNodeData),
+      };
+    }
+    if (
+      object.data?.$case === "updateUserData" &&
+      object.data?.updateUserData !== undefined &&
+      object.data?.updateUserData !== null
+    ) {
+      message.data = {
+        $case: "updateUserData",
+        updateUserData: SSMessage_UpdateUserData.fromPartial(object.data.updateUserData),
+      };
+    }
+    if (
+      object.data?.$case === "removeUserData" &&
+      object.data?.removeUserData !== undefined &&
+      object.data?.removeUserData !== null
+    ) {
+      message.data = {
+        $case: "removeUserData",
+        removeUserData: SSMessage_RemoveUserData.fromPartial(object.data.removeUserData),
+      };
+    }
     return message;
   },
 };
@@ -1648,6 +1763,7 @@ type Builtin = Date | Function | Uint8Array | string | number | boolean | undefi
 
 export type DeepPartial<T> = T extends Builtin ? T
   : T extends Array<infer U> ? Array<DeepPartial<U>> : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends { $case: string } ? { [K in keyof Omit<T, "$case">]?: DeepPartial<T[K]> } & { $case: T["$case"] }
   : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
   : Partial<T>;
 
