@@ -18,6 +18,8 @@ use app::{
 use log::info;
 use tauri::Manager;
 
+pub(self) mod test_webrtc_rs;
+
 #[tokio::main]
 async fn main() {
     if !PRODUCTION_MODE {
@@ -38,6 +40,10 @@ async fn main() {
             });
 
             GLOBAL_APP_HANDLE.store(Some(Arc::new(app.app_handle())));
+
+            // tokio::spawn(async move {
+            //     let _ = test_webrtc_rs::run_webrtc_rs_flow_control_test().await;
+            // });
 
             Ok(())
         })
