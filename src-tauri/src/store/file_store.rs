@@ -2,13 +2,13 @@ use std::{
     collections::{HashMap, VecDeque},
     fs::{create_dir, read_dir, File},
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH, Instant},
 };
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::{FILE_ID_LENGTH, MAX_TEMP_FILES_SIZE_PER_POOL, MAX_TEMP_FILE_SIZE},
+    config::{FILE_ID_LENGTH, MAX_TEMP_FILES_SIZE_PER_POOL, MAX_TEMP_FILE_SIZE, PRODUCTION_MODE},
     poolpb::PoolFileInfo,
 };
 
@@ -45,15 +45,15 @@ pub struct FileStore {
 }
 
 impl StoreManager {
-    pub fn file_offers(&self, pool_id: &String) -> Option<Vec<PoolFileInfo>> {
+    pub fn file_offers(&self, pool_id: &String) -> Vec<PoolFileInfo> {
         let file_store = self.file_store.lock();
         if let Some(pool_offers) = file_store.file_offers.get(pool_id) {
-            return Some(pool_offers.values().cloned().collect());
+            return pool_offers.values().cloned().collect();
         }
-        None
+        Vec::new()
     }
 
-    pub fn file_offers_with_path(&self, pool_id: &String) -> Option<Vec<(PathBuf, PoolFileInfo)>> {
+    pub fn file_offers_with_path(&self, pool_id: &String) -> Vec<(PathBuf, PoolFileInfo)> {
         let file_store = self.file_store.lock();
         if let Some(pool_offers) = file_store.file_offers.get(pool_id) {
             let mut offers = Vec::with_capacity(pool_offers.len());
@@ -61,12 +61,19 @@ impl StoreManager {
                 offers.push((PathBuf::from(path.clone()), file_info.clone()))
             }
 
-            return Some(offers);
+            return offers;
         }
-        None
+        Vec::new()
     }
 
+    #[allow(unused_variables)]
     pub fn add_file_offer(&self, pool_id: &String, file_info: PoolFileInfo, path: PathBuf) -> bool {
+        if !PRODUCTION_MODE {
+            return true;
+        } else {
+            unreachable!();
+        }
+
         if let Some(normalized_path) = FileStore::normalize_path(path) {
             if let Some(normalized_path) = normalized_path.to_str() {
                 let mut file_store = self.file_store.lock();
@@ -287,7 +294,7 @@ impl FileStore {
         }
     }
 
-    pub fn create_cache_file_handle(pool_id: String) -> Option<(File, PathBuf)> {
+    pub fn create_cache_file_handle(pool_id: String, instant_seed: Instant) -> Option<(File, PathBuf)> {
         let mut path = match Self::cache_folder_path() {
             Some(path) => path,
             None => return None,
@@ -298,7 +305,7 @@ impl FileStore {
             return None;
         }
 
-        path.push(pool_id);
+        path.push(format!("{}-{}", pool_id, instant_seed.elapsed().as_millis()));
         let file = File::options()
             .read(true)
             .write(true)

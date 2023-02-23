@@ -1,13 +1,13 @@
 import { listen } from '@tauri-apps/api/event';
-import { AddDownloadAction, AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, InitMessageAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, UpdateUserAction } from '../store/slices/pool.action';
+import { AddDownloadAction, AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, InitMessageAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction } from '../store/slices/pool.action';
 import { poolAction } from '../store/slices/pool.slice';
 import { profileAction, ProfileState } from '../store/slices/profile.slice';
-import { store } from '../store/store';
+import { PoolStore, store } from '../store/store';
 import { PoolConnectionState } from '../types/pool.model';
-import { IPCAddPoolFileDownload, IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCUpdatePoolUser } from './backend.model';
+import { IPCAddPoolFileDownload, IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './backend.model';
 import { Backend } from './global';
 
-export const STATE_UPDATE_EVENT: string = "state-update";
+const STATE_UPDATE_EVENT: string = "state-update";
 
 const INIT_PROFILE_EVENT: string = "init-profile";
 
@@ -15,7 +15,7 @@ const INIT_POOL_EVENT: string = "init-pool";
 const RECONNECT_POOL_EVENT: string = "reconnect-pool";
 const ADD_POOL_NODE_EVENT: string = "add-pool-node";
 const REMOVE_POOL_NODE_EVENT: string = "remove-pool-node";
-const UPDATE_POOL_USER_EVENT: string = "update-pool-user";
+const ADD_POOL_USER_EVENT: string = "add-pool-user";
 const REMOVE_POOL_USER_EVENT: string = "remove-pool-user";
 
 const ADD_POOL_FILE_OFFERS_EVENT: string = "add-pool-file-offers";
@@ -27,6 +27,12 @@ const COMPLETE_POOL_FILE_DOWNLOAD_EVENT: string = "complete-pool-file-download";
 
 const INIT_POOL_MESSAGES_EVENT: string = "init-pool-messages";
 const APPEND_POOL_MESSAGE_EVENT: string = "append-pool-message";
+
+listen(STATE_UPDATE_EVENT, (event) => {
+    console.log("State update", event.payload);
+    let state: IPCStateUpdate = event.payload as any;
+    PoolStore.updateDownloadProgress(state.file_downloads_progress);
+});
 
 listen(INIT_PROFILE_EVENT, (event) => {
     let initProfile: IPCInitProfile = event.payload as any;
@@ -68,11 +74,8 @@ listen(ADD_POOL_NODE_EVENT, (event) => {
     
     let addNodeAction: AddNodeAction = {
         key,
-        node: {
-            nodeID: addPoolNode.node.node_id,
-            userID: addPoolNode.node.user_id,
-            fileOffers: [],
-        },
+        nodeID: addPoolNode.node.node_id,
+        userID: addPoolNode.node.user_id,
     };
     store.dispatch(poolAction.addNode(addNodeAction));
 });
@@ -89,16 +92,16 @@ listen(REMOVE_POOL_NODE_EVENT, (event) => {
     store.dispatch(poolAction.removeNode(removeNodeAction));
 });
 
-listen(UPDATE_POOL_USER_EVENT, (event) => {
-    let updatePoolUser: IPCUpdatePoolUser = event.payload as any;
-    let key = Backend.getPoolKey(updatePoolUser.pool_id);
+listen(ADD_POOL_USER_EVENT, (event) => {
+    let addPoolUser: IPCAddPoolUser = event.payload as any;
+    let key = Backend.getPoolKey(addPoolUser.pool_id);
     if (key == undefined) return;
 
-    let updateUserAction: UpdateUserAction = {
+    let addUserAction: AddUserAction = {
         key,
-        userInfo: updatePoolUser.user_info,
+        userInfo: addPoolUser.user_info,
     };
-    store.dispatch(poolAction.updateUser(updateUserAction));
+    store.dispatch(poolAction.addUser(addUserAction));
 });
 
 listen(REMOVE_POOL_USER_EVENT, (event) => {
@@ -174,8 +177,6 @@ listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {
         success: completeFileDownload.success,
     };
     store.dispatch(poolAction.completeDownload(completeDownloadAction));
-
-    Backend.events.emit(completeFileDownload.file_id, completeFileDownload.success);
 });
 
 listen(INIT_POOL_MESSAGES_EVENT, (event) => {

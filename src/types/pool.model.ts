@@ -1,4 +1,4 @@
-import { PoolFileInfo, PoolMessage } from "./pool.v1";
+import { PoolFileInfo, PoolFileSeeders, PoolMessage } from "./pool.v1";
 import { PoolUserInfo } from "./sync_server.v1";
 
 export const NODE_ID_LENGTH = 10;
@@ -23,13 +23,20 @@ export enum NodeStatus {
     ACTIVE,
 }
 
+export enum UserStatus {
+    JOINED,
+    LEFT,
+}
+
 export interface Pool {
     poolID: string;
     poolName: string;
     key: number;
+    nodeID: string;
     connectionState: PoolConnectionState;
     users: PoolUserInfo[];
-    activeNodes: PoolNode[];
+    fileOffers: PoolFileInfo[];
+    availableFiles: PoolFileSeeders[];
     downloadQueue: PoolFileDownload[];
     feed: FeedMessage[];
 }
@@ -37,6 +44,7 @@ export interface Pool {
 export interface FeedMessage {
     msg?: PoolMessage;
     nodeStatus?: PoolNodeStatus;
+    userStatus?: PoolUserStatus;
 }
 
 export interface PoolNodeStatus {
@@ -46,14 +54,13 @@ export interface PoolNodeStatus {
     created: number;
 }
 
+export interface PoolUserStatus {
+    userID: string,
+    status: UserStatus;
+    created: number;
+}
+
 export interface PoolFileDownload {
     fileInfo: PoolFileInfo;
     status: DownloadProgressStatus;
-    progress?: number;
-}
-
-export interface PoolNode {
-    nodeID: string;
-    userID: string;
-    fileOffers: PoolFileInfo[];
 }

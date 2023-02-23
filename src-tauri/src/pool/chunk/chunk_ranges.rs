@@ -195,7 +195,7 @@ impl ChunkRangesUtil for ChunkRanges {
         let mut i1 = 0;
         let mut i2 = 0;
         let mut start = self[0].start;
-        let mut end = self[1].end;
+        let mut end = self[0].end;
         while i1 < i1_len {
             while i2 < i2_len {
                 if PoolChunkRange::has_chunk(&diff_chunk_ranges[i2], start) {

@@ -6,7 +6,7 @@
     border-top: 2px solid var(--dark-color-secondary);
     margin: 0;
     padding-left: 30px;
-    padding-top: 10px;
+    padding-top: 8px;
     padding-bottom: 20px;
     padding-right: 20px;
     -webkit-box-shadow: 0px 0px 10px 5px rgba(0,0,0,0.7); 
@@ -26,7 +26,7 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     gap: 0px 20px;
 }
 
@@ -226,25 +226,41 @@
     padding: 3px;
 }
 
-.display-user-device-file-offer {
+.display-available-files {
+    display: flex;
+    flex-direction: column;
+}
+
+.display-no-available-files {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--light-color-secondary);
+}
+
+.display-available-file-offer {
     display: flex;
     font-size: 13px;
-    margin-left: 40px;
     padding: 3px 0px;
     gap: 10px;
     white-space: nowrap;
 }
 
-.display-user-device-file-name {
+.display-available-file-name {
     cursor: pointer;
 }
 
-.display-user-device-file-name:hover {
+.display-available-file-name:hover {
     text-decoration: underline;
 }
 
-.display-user-device-file-size {
+.display-available-file-size {
     color: var(--light-color-secondary)
+}
+
+.display-available-file-seeders-count {
+    margin-left: 10px;
+    color: var(--light-color-secondary);
 }
 
 .display-overlay-container {

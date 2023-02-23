@@ -165,10 +165,7 @@ impl PoolNet {
     }
 
     pub(super) async fn send_node_info_data(&self) {
-        let file_offers = match STORE_MANAGER.file_offers(&self.pool_state.pool_id) {
-            Some(file_offers) => file_offers,
-            None => Vec::new(),
-        };
+        let file_offers = STORE_MANAGER.file_offers(&self.pool_state.pool_id);
 
         let node_info_data = NodeInfoData { file_offers };
 
@@ -440,6 +437,8 @@ impl PoolNet {
 
         self.pool_state.set_latest();
 
+        log::debug!("update_latest {:?}", latest_reply_data);
+
         {
             let mut received_messages = self.received_messages.lock();
             for msg in &latest_reply_data.latest_messages {
@@ -448,7 +447,7 @@ impl PoolNet {
         }
 
         MESSAGES_DB
-            .add_latest_messages(&self.pool_state.pool_id, latest_reply_data.latest_messages);
+            .init_latest_messages(&self.pool_state.pool_id, latest_reply_data.latest_messages);
 
         self.pool_state
             .init_file_seeders(latest_reply_data.file_seeders);
@@ -460,7 +459,7 @@ impl PoolNet {
     }
 
     // Promise chunks and returns true if promised
-    async fn promise_chunks(
+    fn promise_chunks(
         &self,
         requesting_node_id: String,
         file_request_data: &mut FileRequestData,
@@ -479,12 +478,10 @@ impl PoolNet {
                 file_request_data,
                 partner_int_path,
             )
-            .await
         {
             if let Some(cache_manager) = &self.cache_manager {
                 return cache_manager
-                    .promise_cache_chunks(requesting_node_id, file_request_data, partner_int_path)
-                    .await;
+                    .promise_cache_chunks(requesting_node_id, file_request_data, partner_int_path);
             }
             false
         } else {
@@ -510,6 +507,8 @@ impl PoolNet {
             self.file_manager
                 .handle_file_chunk(chunk_info.chunk_msg.clone());
         }
+        
+        // log::debug!("send_chunk {}", chunk_info.chunk_msg.chunk_number);
 
         let partner_int_path = chunk_number_to_partner_int_path(chunk_info.chunk_msg.chunk_number);
         let mut msg_pkg =
@@ -576,6 +575,8 @@ impl PoolNet {
     }
 
     pub(super) async fn handle_message(&self, mut msg_pkg_bundle: MessagePackageBundle) {
+        // log::debug!("UNPROCESSED handle_message {:?}", msg_pkg_bundle.msg_pkg);
+
         let mut msg = msg_pkg_bundle.take_msg(); // should never panic or else logic error
         let src_node_id = msg_pkg_bundle.src_node_id(); // should never panic or else logic error
 
@@ -585,6 +586,8 @@ impl PoolNet {
                 return;
             }
         }
+
+        log::debug!("handle_message {:?} {:?}", msg_pkg_bundle.msg_pkg, msg);
 
         if msg_pkg_bundle.msg_pkg.dests.len() != 0 {
             if msg_pkg_bundle.check_and_update_is_dest(&self.pool_state.node_id) {
@@ -637,14 +640,16 @@ impl PoolNet {
                                         src_node_id,
                                         file_request_data,
                                         partner_int_path,
-                                    )
-                                    .await;
+                                    );
                             }
                         }
                     }
                     _ => (),
                 }
                 if modified {
+                    log::info!("Modified Messages {:?}", msg);
+
+                    msg_pkg_bundle.msg_pkg.msg = Some(msg);
                     msg_pkg_bundle = MessagePackageBundle::create(
                         msg_pkg_bundle.msg_pkg,
                         msg_pkg_bundle.from_node_id.clone(),
@@ -659,7 +664,9 @@ impl PoolNet {
                         _ => return,
                     };
 
-                    self.update_node_info(&src_node_id, node_info_data);
+                    if src_node_id != self.pool_state.node_id {
+                        self.update_node_info(&src_node_id, node_info_data);
+                    }
                 }
                 PoolMessageType::Text => {
                     let _ = match &msg.data {

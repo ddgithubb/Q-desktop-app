@@ -37,6 +37,7 @@ use super::{
     pool_state::PoolState,
 };
 
+#[derive(Debug)]
 struct FileRequest {
     file_id: String,
     requesting_node_id: String,
@@ -100,9 +101,8 @@ impl FileManager {
             pool_net_ref: ArcSwapOption::empty(),
         });
 
-        if let Some(file_offers) =
-            STORE_MANAGER.file_offers_with_path(&file_manager.pool_state.pool_id)
-        {
+        let file_offers = STORE_MANAGER.file_offers_with_path(&file_manager.pool_state.pool_id);
+        if !file_offers.is_empty() {
             let mut chunk_senders = file_manager.chunk_senders.write();
             for (path, file_info) in file_offers {
                 chunk_senders.insert(
@@ -161,7 +161,7 @@ impl FileManager {
         }
     }
 
-    pub(super) async fn promise_file_chunks(
+    pub(super) fn promise_file_chunks(
         &self,
         requesting_node_id: String,
         file_request_data: &mut FileRequestData,
@@ -177,7 +177,7 @@ impl FileManager {
                 );
 
                 if promised_chunks.is_empty() {
-                    None
+                    return false;
                 } else {
                     Some(promised_chunks)
                 }
@@ -343,7 +343,7 @@ impl FileManager {
         );
 
         let file_manager_clone = self.clone();
-        std::thread::spawn(move || {
+        tokio::task::spawn_blocking(move || {
             file_manager_clone.chunk_handler_loop(
                 file_info,
                 file_handle,
@@ -393,6 +393,8 @@ impl FileManager {
             let dest_node_ids: Option<Vec<String>> = if !broadcast {
                 let mut file_requests = chunk_sender.file_requests.lock();
                 let file_requests_len = file_requests.len();
+
+                // log::debug!("chunk_sender : file_requests {:?}", file_requests);
 
                 if file_requests.len() == 0 {
                     return;
@@ -855,7 +857,7 @@ impl ChunkSender {
             if file_requests.len() == 1 && !self.broadcasting.load(Ordering::SeqCst) {
                 let file_id = file_requests[0].file_id.clone();
                 if let Some(file_manager) = self.file_manager_ref.upgrade() {
-                    std::thread::spawn(move || {
+                    tokio::task::spawn_blocking(move || {
                         file_manager.chunk_sender_loop(file_id, false);
                     });
                 }
@@ -865,7 +867,7 @@ impl ChunkSender {
 
     pub fn broadcast_file(&self, file_id: String) {
         if let Some(file_manager) = self.file_manager_ref.upgrade() {
-            std::thread::spawn(move || {
+            tokio::task::spawn_blocking(move || {
                 file_manager.chunk_sender_loop(file_id, true);
             });
         }

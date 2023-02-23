@@ -69,14 +69,16 @@ impl CacheManager {
         send_chunk_tx: Sender<SendChunkInfo>,
     ) -> Option<Arc<Self>> {
         let (writer_file_handle, cache_file_path) = match FileStore::create_cache_file_handle(
-            pool_state.pool_id.clone()
+            pool_state.pool_id.clone(),
+            pool_state.instant_seed.clone()
         ) {
             Some(file) => file,
             None => return None,
         };
 
         let (reader_file_handle, _) = match FileStore::create_cache_file_handle(
-            pool_state.pool_id.clone()
+            pool_state.pool_id.clone(),
+            pool_state.instant_seed.clone(),
         ) {
             Some(file) => file,
             None => return None,
@@ -120,7 +122,7 @@ impl CacheManager {
         let _ = remove_file(self.cache_file_path.clone());
     }
 
-    pub(super) async fn promise_cache_chunks(
+    pub(super) fn promise_cache_chunks(
         &self,
         requesting_node_id: String,
         file_request_data: &mut FileRequestData,

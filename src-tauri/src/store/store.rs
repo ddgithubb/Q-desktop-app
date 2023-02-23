@@ -54,7 +54,7 @@ impl<'a, T: Default + Serialize + for<'de> Deserialize<'de>> Store<T> {
         rename(tmp_path, &self.store_path).unwrap();
     }
 
-    fn open_store_file(name: &String, is_temp: bool) -> Option<(File, PathBuf)> {
+    pub fn open_store_file(name: &String, is_temp: bool) -> Option<(File, PathBuf)> {
         let mut path = match StoreManager::app_data_dir() {
             Some(path) => path,
             None => return None,

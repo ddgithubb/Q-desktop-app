@@ -1,26 +1,24 @@
 import { invoke } from "@tauri-apps/api";
 import EventEmitter from "events";
-import { AddDownloadAction, ClearPoolAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
+import { AddDownloadAction, ClearPoolAction, SetSavedPoolDataAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
 import { poolAction } from "../store/slices/pool.slice";
 import { store } from "../store/store";
 import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
 import { PoolFileInfo } from "../types/pool.v1";
-import { open } from '@tauri-apps/api/dialog';
+import { open, message } from '@tauri-apps/api/dialog';
+import { IPCSavedPoolData } from "./backend.model";
 
 export class BackendCommands {
 
     poolKeyMap: Map<string, number> = new Map();
-    events: EventEmitter;
 
-    constructor() {
-        this.events = new EventEmitter();
-    }
+    constructor() {}
 
     getPoolKey(poolId: string): number | undefined {
         return this.poolKeyMap.get(poolId);
     }
 
-    connectToPool(poolId: string, poolKey: number, displayName: string) {
+    async connectToPool(poolId: string, poolKey: number, displayName: string) {
         this.poolKeyMap.set(poolId, poolKey);
 
         store.dispatch(poolAction.updateConnectionState({
@@ -28,7 +26,12 @@ export class BackendCommands {
             state: PoolConnectionState.CONNECTING,
         } as UpdateConnectionStateAction));
 
-        invoke('connect_to_pool', { poolId, displayName });
+        let savedPoolData: IPCSavedPoolData = await invoke('connect_to_pool', { poolId, displayName });
+        let setSavedPoolDataAction: SetSavedPoolDataAction = {
+            key: poolKey,
+            offlinePoolData: savedPoolData,
+        };
+        store.dispatch(poolAction.setSavedPoolData(setSavedPoolDataAction));
     }
 
     disconnectFromPool(poolId: string) {
@@ -53,16 +56,22 @@ export class BackendCommands {
         if (key == undefined) return;
 
         let filePath = await open({
-            multiple: false,
+            multiple: true,
             directory: false,
             title: "Add File",
         });
 
-        if (!filePath || typeof filePath != 'string') {
+        if (!filePath) {
             return;
         }
 
-        invoke('add_file_offer', { poolId, filePath });
+        if (typeof filePath == 'string') {
+            invoke('add_file_offer', { poolId, filePath });
+        } else {
+            for (const path of filePath) {
+                invoke('add_file_offer', { poolId, filePath: path });
+            }
+        }
     }
 
     async addImageOffer(poolId: string) {
@@ -90,11 +99,26 @@ export class BackendCommands {
         let key = this.getPoolKey(poolId);
         if (key == undefined) return;
 
-        for (const download of store.getState().pool.pools[key].downloadQueue) {
+        let pool = store.getState().pool.pools[key];
+        for (const download of pool.downloadQueue) {
             if (download.fileInfo.fileId == fileInfo.fileId) {
+                message("Already downloading");
                 return;
             }
         }
+
+        let isAvailable = false;
+        for (const file of pool.availableFiles) {
+            if (file.fileInfo?.fileId == fileInfo.fileId) {
+                isAvailable = true;
+                break;
+            }
+        }
+
+        if (!isAvailable) {
+            message("File not available");
+            return;
+        };
 
         let dirPath = await open({
             multiple: false,

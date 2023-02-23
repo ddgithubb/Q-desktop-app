@@ -47,7 +47,7 @@ message SSMessage { // Sync Server Message
         INIT_POOL = 9;
         ADD_NODE = 10;
         REMOVE_NODE = 11;
-        UPDATE_USER = 12;
+        ADD_USER = 12;
         REMOVE_USER = 13;
     }
 
@@ -65,7 +65,7 @@ message SSMessage { // Sync Server Message
         InitPoolData init_pool_data = 11;
         AddNodeData add_node_data = 12;
         RemoveNodeData remove_node_data = 13;
-        UpdateUserData update_user_data = 14;
+        AddUserData add_user_data = 14;
         RemoveUserData remove_user_data = 15;
     }
     
@@ -121,20 +121,20 @@ message SSMessage { // Sync Server Message
         string node_id = 1;
         string user_id = 2;
         repeated uint32 path = 3;
-        uint64 timestamp = 4;
     }
 
     message RemoveNodeData {
         string node_id = 1;
-        uint64 timestamp = 2;
-        repeated PoolBasicNode promoted_nodes = 3;
+        repeated PoolBasicNode promoted_nodes = 2;
     }
 
-    message UpdateUserData {
+    message AddUserData {
         PoolUserInfo user_info = 1;
     }
 
     message RemoveUserData {
         string user_id = 1;
     }
+    
+    // add device
 }

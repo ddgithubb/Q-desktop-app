@@ -34,7 +34,7 @@ impl StoreManager {
         user_store.update();
     }
 
-    pub fn update_pool_user(&self, pool_id: &String, user_info: PoolUserInfo) {
+    pub fn add_pool_user(&self, pool_id: &String, user_info: PoolUserInfo) {
         let mut user_store = self.user_store.lock();
         if let Some(pool) = user_store.pools.get_mut(pool_id) {
             for user in pool.users.iter_mut() {

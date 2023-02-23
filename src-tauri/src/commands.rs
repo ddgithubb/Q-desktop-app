@@ -1,11 +1,13 @@
-use crate::{poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER};
+use crate::{poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCSavedPoolData, MESSAGES_DB};
 
 #[tauri::command]
-pub async fn connect_to_pool(pool_id: String, display_name: String) {
+pub async fn connect_to_pool(pool_id: String, display_name: String) -> IPCSavedPoolData {
     STORE_MANAGER._set_display_name(display_name);
+    let saved_pool_data = IPCSavedPoolData {
+        messages: MESSAGES_DB.latest_messages(&pool_id),
+    };
     POOL_MANAGER.connect_to_pool(pool_id).await;
-
-    
+    saved_pool_data
 }
 
 #[tauri::command]

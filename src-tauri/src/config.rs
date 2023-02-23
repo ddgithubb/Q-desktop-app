@@ -5,10 +5,12 @@ use crate::{STORE_MANAGER};
 pub const PRODUCTION_MODE: bool = false;
 
 pub const CHUNK_SIZE: usize = 32 * 1024;
+
 pub const MAX_DC_BUFFER_SIZE: usize = 16 * 1024 * 1024;
 pub const MAX_DC_BUFFER_CHUNK_AMOUNT: usize = MAX_DC_BUFFER_SIZE / CHUNK_SIZE;
 pub const DC_REFILL_RATE_SIZE: usize = 1 * 1024 * 1024;
 pub const DC_REFILL_RATE_CHUNK_AMOUNT: usize = DC_REFILL_RATE_SIZE / CHUNK_SIZE;
+
 pub const BUFFERED_AMOUNT_LOW_THRESHOLD: usize = MAX_DC_BUFFER_SIZE - DC_REFILL_RATE_SIZE; 
 pub const DC_INIT_BUFFER_MAX_FILL_RATE_TIMEOUT: u64 = Duration::from_secs(1).as_millis() as u64;
 pub const DC_INIT_BUFFER_MIN_FILL_RATE_TIMEOUT: u64 = Duration::from_millis(1).as_millis() as u64;

@@ -39,7 +39,7 @@ impl MessagesDB {
         append_pool_message_event(pool_id, msg);
     }
 
-    pub fn add_latest_messages(&self, pool_id: &String, msgs: Vec<PoolMessage>) {
+    pub fn init_latest_messages(&self, pool_id: &String, msgs: Vec<PoolMessage>) {
         {
             let mut pool_messages = self.pool_messages.lock();
             if !pool_messages.contains_key(pool_id) {
@@ -47,7 +47,7 @@ impl MessagesDB {
             }
 
             if let Some(internal) = pool_messages.get_mut(pool_id) {
-                internal.add_latest_messages(msgs.clone());
+                internal.init_latest_messages(msgs.clone());
             }
         }
 
@@ -83,8 +83,9 @@ impl MessagesDBInternal {
     // SHOULD HAVE MECHANISM FOR MESSAGES DUPS
     // ESPECIALY THIS, latest messages will be loaded by own db files
     // BUT new latest messages can override all that even if it is at latest
-    fn add_latest_messages(&mut self, msgs: Vec<PoolMessage>) {
-        self.latest_messages.extend(msgs.into_iter());
+    fn init_latest_messages(&mut self, msgs: Vec<PoolMessage>) {
+        // self.latest_messages.extend(msgs.into_iter());
+        self.latest_messages = msgs.into(); //TMP
 
         let overflow_amount: isize = self.latest_messages.len() as isize - LATEST_MESSAGES_SIZE as isize;
         if overflow_amount > 0 {

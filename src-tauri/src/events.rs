@@ -5,7 +5,7 @@ use crate::{
         IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload,
         IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCPoolNode,
         IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate,
-        IPCUpdatePoolUser, IPCReconnectPool, IPCAddPoolFileDownload,
+        IPCAddPoolUser, IPCReconnectPool, IPCAddPoolFileDownload,
     },
     poolpb::{PoolFileInfo, PoolFileSeeders, PoolMessage},
     sspb::PoolUserInfo,
@@ -20,7 +20,7 @@ const INIT_POOL_EVENT: &'static str = "init-pool";
 const RECONNECT_POOL_EVENT: &'static str = "reconnect-pool";
 const ADD_POOL_NODE_EVENT: &'static str = "add-pool-node";
 const REMOVE_POOL_NODE_EVENT: &'static str = "remove-pool-node";
-const UPDATE_POOL_USER_EVENT: &'static str = "update-pool-user";
+const ADD_POOL_USER_EVENT: &'static str = "add-pool-user";
 const REMOVE_POOL_USER_EVENT: &'static str = "remove-pool-user";
 
 const ADD_POOL_FILE_OFFERS_EVENT: &'static str = "add-pool-file-offers";
@@ -83,11 +83,11 @@ pub fn remove_pool_node_event(pool_id: &String, node_id: String) {
     }
 }
 
-pub fn update_pool_user_event(pool_id: &String, user_info: PoolUserInfo) {
+pub fn add_pool_user_event(pool_id: &String, user_info: PoolUserInfo) {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
         let _ = app_handle.emit_all(
-            UPDATE_POOL_USER_EVENT,
-            IPCUpdatePoolUser {
+            ADD_POOL_USER_EVENT,
+            IPCAddPoolUser {
                 pool_id: pool_id.clone(),
                 user_info,
             },

@@ -1,9 +1,9 @@
-use std::{fs::create_dir, path::PathBuf};
+use std::{fs::{create_dir}, path::PathBuf};
 
 use log::info;
 use parking_lot::Mutex;
 
-use crate::GLOBAL_APP_HANDLE;
+use crate::{GLOBAL_APP_HANDLE};
 
 use super::{file_store::FileStore, store::Store, user_store::UserStore};
 

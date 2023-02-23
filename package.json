@@ -31,7 +31,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "tauri": "tauri",
-    "desktop": "tauri dev"
+    "desktopDev": "tauri dev",
+    "desktopRelease": "tauri dev --release"
   },
   "eslintConfig": {
     "extends": [

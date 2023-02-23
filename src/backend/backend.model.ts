@@ -16,8 +16,7 @@ export interface IPCInitProfile {
     device: PoolDeviceInfo,
 }
 
-export interface IPCOfflinePoolData {
-    file_offers: PoolFileInfo[],
+export interface IPCSavedPoolData {
     messages: PoolMessage[],
 }
 
@@ -27,6 +26,7 @@ export interface IPCPoolNode {
 }
 
 export interface IPCInitPool {
+    node_id: string,
     pool_info: PoolInfo,
     init_nodes: IPCPoolNode[], 
 }
@@ -45,7 +45,7 @@ export interface IPCRemovePoolNode {
     node_id: string,
 }
 
-export interface IPCUpdatePoolUser {
+export interface IPCAddPoolUser {
     pool_id: string,
     user_info: PoolUserInfo,
 }

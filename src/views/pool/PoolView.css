@@ -18,7 +18,7 @@ textarea {
     flex-direction: column;
     align-items: center;
     position: fixed;
-    bottom: 230px;
+    bottom: 200px;
     right: 0px;
     padding-right: 25px;
 }

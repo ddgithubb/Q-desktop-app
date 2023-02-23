@@ -2,10 +2,10 @@
 import { useState, useRef, memo, useEffect } from 'react'
 import { CircularProgressbar } from 'react-circular-progressbar'
 import { fileSizeToString } from '../../utils/file-size'
-import { Pool, PoolConnectionState, DownloadProgressStatus, PoolFileDownload, PoolNode } from '../../types/pool.model'
+import { Pool, PoolConnectionState, DownloadProgressStatus, PoolFileDownload } from '../../types/pool.model'
 import { IndicatorDot } from '../components/IndicatorDot'
 import { PoolDisplayUsersView } from './PoolDisplayUsersView'
-import { PoolMessageMode, UserMapType } from './PoolView'
+import { PoolMessageMode } from './PoolView'
 
 import './PoolDisplayView.css'
 import AddIcon from '../../assets/add.png'
@@ -13,21 +13,17 @@ import AddImageIcon from '../../assets/add-image.png'
 import FileIcon from '../../assets/file.png'
 import CancelIcon from '../../assets/trash.png'
 import SendIcon from '../../assets/send.png'
-import { STATE_UPDATE_EVENT } from '../../backend/events'
-import { listen } from '@tauri-apps/api/event'
-import { IPCFileDownloadProgress, IPCStateUpdate } from '../../backend/backend.model'
 import { Backend } from '../../backend/global'
+import { PoolStore } from '../../store/store'
 
 export interface PoolDisplayViewParams {
     pool: Pool;
-    myNode: PoolNode;
     messageMode: PoolMessageMode;
-    userMap: UserMapType;
 }
 
 export const PoolDisplayView = memo(PoolDisplayViewComponent);
 
-function PoolDisplayViewComponent({ pool, myNode, messageMode, userMap }: PoolDisplayViewParams) {
+function PoolDisplayViewComponent({ pool, messageMode }: PoolDisplayViewParams) {
 
     const [textAreaElement, setTextAreaElement] = useState<HTMLDivElement | null>(null);
 
@@ -101,7 +97,7 @@ function PoolDisplayViewComponent({ pool, myNode, messageMode, userMap }: PoolDi
                         <div className="display-info-bar-status">
                             <IndicatorDot type="online" />
                             <div className="display-info-bar-subtitle">
-                                {pool.activeNodes.length || 0} Device{(pool.activeNodes.length || 0) == 1 ? "" : "s"} Active
+                                {PoolStore.getActiveDevicesCount(pool.poolID)} Device{(PoolStore.getActiveDevicesCount(pool.poolID)) == 1 ? "" : "s"} Active
                             </div>
                         </div>
                     ) : (
@@ -116,11 +112,11 @@ function PoolDisplayViewComponent({ pool, myNode, messageMode, userMap }: PoolDi
                 <div className="display-info-bar-status">
                     <IndicatorDot type="offline" />
                     <div className="display-info-bar-subtitle">
-                        {pool.users.length} Total User{(pool.users.length || 1) > 1 ? "s" : ""}
+                        {pool.users.length} Total User{pool.users.length > 1 ? "s" : ""}
                     </div>
                 </div>
             </div>
-            <div className="display-toggle-hide display-message-input" aria-hidden={messageMode != PoolMessageMode.TEXT}>
+            <div aria-hidden={messageMode != PoolMessageMode.TEXT} className="display-toggle-hide display-component-container display-message-input">
                 <div
                     className="display-component-container display-text-input"
                     data-placeholder='Send Text Message'
@@ -136,14 +132,13 @@ function PoolDisplayViewComponent({ pool, myNode, messageMode, userMap }: PoolDi
                     <img className="display-message-input-icon" src={AddImageIcon} onClick={addImage} />
                 </div>
             </div>
-            <div className="display-toggle-hide display-component-container display-files-container" aria-hidden={messageMode != PoolMessageMode.FILE}>
+            <div aria-hidden={messageMode != PoolMessageMode.FILE} className="display-toggle-hide display-component-container display-files-container">
                 <div className="display-file-container display-file-container-add-button" onClick={addFile}>
                     <img src={AddIcon} height={28} width={28} />
                     Add File
                 </div>
-                {/* delete file(s) button with function to delete multiple files by just clicking*/}
                 {
-                    myNode.fileOffers?.map((fileInfo) => (
+                    pool.fileOffers.map((fileInfo) => (
                         <div className="display-cancel-button-container" key={fileInfo.fileId} onClick={() => retractFileOffer(fileInfo.fileId)}>
                             <div className="display-file-container display-cancel-button-child elipsify-container">
                                 <img src={FileIcon} height={22} width={22} />
@@ -155,35 +150,46 @@ function PoolDisplayViewComponent({ pool, myNode, messageMode, userMap }: PoolDi
                     ))
                 }
             </div>
-            <PoolDisplayUsersView poolID={pool.poolID || ""} users={pool.users || []} userMap={userMap} hidden={messageMode != PoolMessageMode.USERS} />
+            <div aria-hidden={messageMode != PoolMessageMode.AVAILABLE_FILES} className="display-toggle-hide display-component-container display-available-files">
+                {
+                    pool.availableFiles.length ? 
+                        pool.availableFiles.map((file) => (
+                            <div className="display-available-file-offer" key={file.fileInfo!.fileId}>
+                                <span className="display-available-file-name" onClick={() => Backend.downloadFile(pool.poolID, file.fileInfo!)}>{file.fileInfo!.fileName}</span> 
+                                <span className="display-available-file-size">{fileSizeToString(file.fileInfo!.totalSize)}</span>
+                                <span className="display-available-file-seeders-count">{file.seederNodeIds.length} seeder{file.seederNodeIds.length > 1 ? "s" : ""}</span>
+                            </div>
+                        ))
+                    : (
+                        <div className="display-no-available-files">
+                            No available files
+                        </div>
+                    )
+                }
+            </div>
+            <PoolDisplayUsersView hidden={messageMode != PoolMessageMode.USERS} poolID={pool.poolID} users={pool.users} />
         </div>
     )
 }
 
 function DownloadQueue({ poolID, downloadQueue }: { poolID: string, downloadQueue: PoolFileDownload[] }) {
 
-    let dqMap = useRef<Map<string, PoolFileDownload>>(new Map());
+    const refreshTimer = useRef<NodeJS.Timer | undefined>(undefined);
+    const [, updateState] = useState<{}>();
 
     useEffect(() => {
-        let newDqMap = new Map<string, PoolFileDownload>();
-        
-        for (const download of downloadQueue) {
-            newDqMap.set(download.fileInfo.fileId, download);
-        }
-        
-        dqMap.current = newDqMap;
-    }, [downloadQueue]);
-
-    useEffect(() => {
-        listen(STATE_UPDATE_EVENT, ({ event, payload }) => {
-            let state: IPCStateUpdate = payload as any;
-            for (const download_progress of state.file_downloads_progress) {
-                let download = dqMap.current.get(download_progress.file_id);
-                if (!download) continue;
-                download.progress = download_progress.progress
+        if (downloadQueue.length != 0) {
+            if (refreshTimer.current == undefined) {
+                refreshTimer.current = setInterval(() => {
+                    console.log("FORCE UPDATE");
+                    updateState({});
+                }, 500);
             }
-        });
-    }, []);
+        } else {
+            clearInterval(refreshTimer.current);
+            refreshTimer.current = undefined;
+        }
+    }, [downloadQueue]);
 
     const removeFileDownload = (fileDownload: PoolFileDownload) => {
         Backend.removeFileDownload(poolID, fileDownload);
@@ -200,7 +206,7 @@ function DownloadQueue({ poolID, downloadQueue }: { poolID: string, downloadQueu
                         <div className="display-downloading-file display-cancel-button-child">
                             <div className="display-downloading-file-progress">
                                 <CircularProgressbar
-                                    value={fileDownload.progress || 0}
+                                    value={fileDownload.status == DownloadProgressStatus.SUCCESS ? 100 : PoolStore.getDownloadProgress(fileDownload.fileInfo.fileId)}
                                     strokeWidth={15}
                                     styles={{
                                         path: {

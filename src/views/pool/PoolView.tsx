@@ -1,7 +1,7 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PoolConnectionState, PoolNode } from '../../types/pool.model';
+import { PoolConnectionState } from '../../types/pool.model';
 import { getStoreState, GlobalState, store } from '../../store/store';
 import { motion } from 'framer-motion';
 import { PoolMessagesView } from './PoolMessagesView';
@@ -13,6 +13,8 @@ import UserGroupIcon from '../../assets/user-group.png';
 import SettingsIcon from '../../assets/settings.png';
 import DisconnectedIcon from '../../assets/disconnected.png';
 import DisconnectIcon from '../../assets/disconnect.png';
+import DownloadIcon from '../../assets/download.png';
+
 import { PoolDisplayView } from './PoolDisplayView';
 import { poolAction } from '../../store/slices/pool.slice';
 import { PoolInfo, PoolUserInfo } from '../../types/sync_server.v1';
@@ -22,6 +24,7 @@ export enum PoolMessageMode {
     DISCONNECT,
     TEXT,
     FILE,
+    AVAILABLE_FILES,
     USERS,
     SETTINGS,
 }
@@ -58,7 +61,9 @@ export function PoolContainerView() {
             poolName: poolID,
             users: []
         };
-        store.dispatch(poolAction.setPools([poolInfo]));
+        store.dispatch(poolAction.setPools({
+            poolInfos: [poolInfo],
+        }));
         // TEMP
 
         let pools = getStoreState().pool.pools;
@@ -81,48 +86,11 @@ export function PoolContainerView() {
     }
 }
 
-export type UserMapType = Map<string, PoolUserActiveDevices>;
-
-export interface PoolUserActiveDevices {
-    user: PoolUserInfo;
-    activeDevices: Map<String, PoolNode> | undefined;
-}
-
 export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number }) {
 
     const [ messageMode, setMessageMode ] = useState<PoolMessageMode>(PoolMessageMode.TEXT);
-    const pool = useSelector((state: GlobalState) => state.pool.pools.at(poolKey));
+    const pool = useSelector((state: GlobalState) => state.pool.pools[poolKey]);
     const navigate = useNavigate();
-    const [ userMap, myNode ] = useMemo<[UserMapType, PoolNode]>(() => {
-        if (!pool) return [new Map<string, PoolUserActiveDevices>(), {} as PoolNode];
-
-        let userMap = new Map<string, PoolUserActiveDevices>();
-        for (const user of pool.users) {
-            let userAndDevices: PoolUserActiveDevices = {
-                user: user,
-                activeDevices: undefined,
-            };
-            userMap.set(user.userId, userAndDevices);
-        }
-
-        let myNodeID = store.getState().profile.device.deviceId;
-        let myNode: PoolNode = {} as PoolNode;
-        for (const activeNode of pool.activeNodes) {
-            let userAndDevices = userMap.get(activeNode.userID);
-            if (!userAndDevices) continue;
-            if (!userAndDevices.activeDevices) {
-                userAndDevices.activeDevices = new Map<String, PoolNode>();
-            }
-            if (activeNode.nodeID == myNodeID) {
-                myNode = activeNode;
-            }
-            userAndDevices.activeDevices.set(activeNode.nodeID, activeNode);
-        }
-
-        console.log(userMap, myNode, pool.activeNodes, myNodeID);
-
-        return [ userMap, myNode ];
-    }, [pool?.users, pool?.activeNodes]);
 
     useEffect(() => {
         if (messageMode == PoolMessageMode.DISCONNECT) {
@@ -134,10 +102,10 @@ export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number 
     return (
         <div className="pool-view">
             {/* TODO: add fixed siaply of pool name along with # of active devices, # of active users, and # of users in general */}
-            <PoolMessagesView poolID={poolID} feed={pool?.feed || []} userMap={userMap} />
+            <PoolMessagesView poolID={poolID} feed={pool?.feed || []} />
             {
                 pool ? (
-                    <PoolDisplayView pool={pool} myNode={myNode} messageMode={messageMode} userMap={userMap} />
+                    <PoolDisplayView pool={pool} messageMode={messageMode} />
                 ) : null
             }
             <ActionBar connectionState={pool?.connectionState || PoolConnectionState.CLOSED } messageMode={messageMode} setMessageMode={setMessageMode} />
@@ -162,8 +130,9 @@ function ActionBarComponent({ connectionState, messageMode, setMessageMode }: { 
             transition={{ type: "spring", duration: 0.5 }} 
         >
             <ActionBarButton buttonType='danger' mode={PoolMessageMode.DISCONNECT} icon={DisconnectIcon} messageMode={messageMode} setMessageMode={setMessageMode} />
-            <ActionBarButton buttonType='utility' mode={PoolMessageMode.SETTINGS} icon={SettingsIcon} messageMode={messageMode} setMessageMode={setMessageMode} />
+            {/* <ActionBarButton buttonType='utility' mode={PoolMessageMode.SETTINGS} icon={SettingsIcon} messageMode={messageMode} setMessageMode={setMessageMode} /> */}
             <ActionBarButton buttonType='utility' mode={PoolMessageMode.USERS} icon={UserGroupIcon} messageMode={messageMode} setMessageMode={setMessageMode}/>
+            <ActionBarButton buttonType='utility' mode={PoolMessageMode.AVAILABLE_FILES} icon={DownloadIcon} messageMode={messageMode} setMessageMode={setMessageMode}/>
             <div className="action-bar-button-spacer"/>
             <ActionBarButton buttonType='feature' mode={PoolMessageMode.FILE} icon={FileIcon} messageMode={messageMode} setMessageMode={setMessageMode}/>
             <ActionBarButton buttonType='feature' mode={PoolMessageMode.TEXT} icon={TextMessageIcon} messageMode={messageMode} setMessageMode={setMessageMode}/>

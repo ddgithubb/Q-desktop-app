@@ -19,14 +19,14 @@ struct Pool {
 
 impl Pool {
     pub(self) fn init(pool_id: String) -> Self {
-        let pool_state = Arc::new(PoolState::new(pool_id));
+        let pool_state = Arc::new(PoolState::init(pool_id));
         let pool_conn = PoolConn::init(pool_state.clone());
         let pool_net = PoolNet::init(pool_state.clone(), pool_conn.clone());
         let sync_server_client = SyncServerClient::init(pool_state.clone(), pool_conn.clone());
 
         pool_conn
             .pool_net_ref
-            .store(Some(Arc::new(Arc::downgrade(&pool_net.clone()))));
+            .store(Some(pool_net.clone()));
 
         Pool {
             pool_state,
@@ -109,12 +109,7 @@ impl PoolManager {
         }
     }
 
-    pub async fn download_file(
-        &self,
-        pool_id: &String,
-        file_info: PoolFileInfo,
-        dir_path: String,
-    ) {
+    pub async fn download_file(&self, pool_id: &String, file_info: PoolFileInfo, dir_path: String) {
         let active_pools = self.active_pools.read().await;
         if let Some(pool) = active_pools.get(pool_id) {
             let dir_path = PathBuf::from(dir_path);

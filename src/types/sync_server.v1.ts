@@ -1,5 +1,4 @@
 /* eslint-disable */
-import Long from "long";
 import _m0 from "protobufjs/minimal";
 
 export const protobufPackage = "sync_server.v1";
@@ -76,7 +75,7 @@ export interface SSMessage {
     | { $case: "initPoolData"; initPoolData: SSMessage_InitPoolData }
     | { $case: "addNodeData"; addNodeData: SSMessage_AddNodeData }
     | { $case: "removeNodeData"; removeNodeData: SSMessage_RemoveNodeData }
-    | { $case: "updateUserData"; updateUserData: SSMessage_UpdateUserData }
+    | { $case: "addUserData"; addUserData: SSMessage_AddUserData }
     | { $case: "removeUserData"; removeUserData: SSMessage_RemoveUserData };
 }
 
@@ -93,7 +92,7 @@ export enum SSMessage_Op {
   INIT_POOL = 9,
   ADD_NODE = 10,
   REMOVE_NODE = 11,
-  UPDATE_USER = 12,
+  ADD_USER = 12,
   REMOVE_USER = 13,
   UNRECOGNIZED = -1,
 }
@@ -137,8 +136,8 @@ export function sSMessage_OpFromJSON(object: any): SSMessage_Op {
     case "REMOVE_NODE":
       return SSMessage_Op.REMOVE_NODE;
     case 12:
-    case "UPDATE_USER":
-      return SSMessage_Op.UPDATE_USER;
+    case "ADD_USER":
+      return SSMessage_Op.ADD_USER;
     case 13:
     case "REMOVE_USER":
       return SSMessage_Op.REMOVE_USER;
@@ -175,8 +174,8 @@ export function sSMessage_OpToJSON(object: SSMessage_Op): string {
       return "ADD_NODE";
     case SSMessage_Op.REMOVE_NODE:
       return "REMOVE_NODE";
-    case SSMessage_Op.UPDATE_USER:
-      return "UPDATE_USER";
+    case SSMessage_Op.ADD_USER:
+      return "ADD_USER";
     case SSMessage_Op.REMOVE_USER:
       return "REMOVE_USER";
     case SSMessage_Op.UNRECOGNIZED:
@@ -260,16 +259,14 @@ export interface SSMessage_AddNodeData {
   nodeId: string;
   userId: string;
   path: number[];
-  timestamp: number;
 }
 
 export interface SSMessage_RemoveNodeData {
   nodeId: string;
-  timestamp: number;
   promotedNodes: PoolBasicNode[];
 }
 
-export interface SSMessage_UpdateUserData {
+export interface SSMessage_AddUserData {
   userInfo: PoolUserInfo | undefined;
 }
 
@@ -602,8 +599,8 @@ export const SSMessage = {
     if (message.data?.$case === "removeNodeData") {
       SSMessage_RemoveNodeData.encode(message.data.removeNodeData, writer.uint32(106).fork()).ldelim();
     }
-    if (message.data?.$case === "updateUserData") {
-      SSMessage_UpdateUserData.encode(message.data.updateUserData, writer.uint32(114).fork()).ldelim();
+    if (message.data?.$case === "addUserData") {
+      SSMessage_AddUserData.encode(message.data.addUserData, writer.uint32(114).fork()).ldelim();
     }
     if (message.data?.$case === "removeUserData") {
       SSMessage_RemoveUserData.encode(message.data.removeUserData, writer.uint32(122).fork()).ldelim();
@@ -688,10 +685,7 @@ export const SSMessage = {
           };
           break;
         case 14:
-          message.data = {
-            $case: "updateUserData",
-            updateUserData: SSMessage_UpdateUserData.decode(reader, reader.uint32()),
-          };
+          message.data = { $case: "addUserData", addUserData: SSMessage_AddUserData.decode(reader, reader.uint32()) };
           break;
         case 15:
           message.data = {
@@ -745,8 +739,8 @@ export const SSMessage = {
         ? { $case: "addNodeData", addNodeData: SSMessage_AddNodeData.fromJSON(object.addNodeData) }
         : isSet(object.removeNodeData)
         ? { $case: "removeNodeData", removeNodeData: SSMessage_RemoveNodeData.fromJSON(object.removeNodeData) }
-        : isSet(object.updateUserData)
-        ? { $case: "updateUserData", updateUserData: SSMessage_UpdateUserData.fromJSON(object.updateUserData) }
+        : isSet(object.addUserData)
+        ? { $case: "addUserData", addUserData: SSMessage_AddUserData.fromJSON(object.addUserData) }
         : isSet(object.removeUserData)
         ? { $case: "removeUserData", removeUserData: SSMessage_RemoveUserData.fromJSON(object.removeUserData) }
         : undefined,
@@ -793,9 +787,10 @@ export const SSMessage = {
     message.data?.$case === "removeNodeData" && (obj.removeNodeData = message.data?.removeNodeData
       ? SSMessage_RemoveNodeData.toJSON(message.data?.removeNodeData)
       : undefined);
-    message.data?.$case === "updateUserData" && (obj.updateUserData = message.data?.updateUserData
-      ? SSMessage_UpdateUserData.toJSON(message.data?.updateUserData)
-      : undefined);
+    message.data?.$case === "addUserData" &&
+      (obj.addUserData = message.data?.addUserData
+        ? SSMessage_AddUserData.toJSON(message.data?.addUserData)
+        : undefined);
     message.data?.$case === "removeUserData" && (obj.removeUserData = message.data?.removeUserData
       ? SSMessage_RemoveUserData.toJSON(message.data?.removeUserData)
       : undefined);
@@ -914,14 +909,11 @@ export const SSMessage = {
       };
     }
     if (
-      object.data?.$case === "updateUserData" &&
-      object.data?.updateUserData !== undefined &&
-      object.data?.updateUserData !== null
+      object.data?.$case === "addUserData" &&
+      object.data?.addUserData !== undefined &&
+      object.data?.addUserData !== null
     ) {
-      message.data = {
-        $case: "updateUserData",
-        updateUserData: SSMessage_UpdateUserData.fromPartial(object.data.updateUserData),
-      };
+      message.data = { $case: "addUserData", addUserData: SSMessage_AddUserData.fromPartial(object.data.addUserData) };
     }
     if (
       object.data?.$case === "removeUserData" &&
@@ -1482,7 +1474,7 @@ export const SSMessage_InitPoolData = {
 };
 
 function createBaseSSMessage_AddNodeData(): SSMessage_AddNodeData {
-  return { nodeId: "", userId: "", path: [], timestamp: 0 };
+  return { nodeId: "", userId: "", path: [] };
 }
 
 export const SSMessage_AddNodeData = {
@@ -1498,9 +1490,6 @@ export const SSMessage_AddNodeData = {
       writer.uint32(v);
     }
     writer.ldelim();
-    if (message.timestamp !== 0) {
-      writer.uint32(32).uint64(message.timestamp);
-    }
     return writer;
   },
 
@@ -1527,9 +1516,6 @@ export const SSMessage_AddNodeData = {
             message.path.push(reader.uint32());
           }
           break;
-        case 4:
-          message.timestamp = longToNumber(reader.uint64() as Long);
-          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1543,7 +1529,6 @@ export const SSMessage_AddNodeData = {
       nodeId: isSet(object.nodeId) ? String(object.nodeId) : "",
       userId: isSet(object.userId) ? String(object.userId) : "",
       path: Array.isArray(object?.path) ? object.path.map((e: any) => Number(e)) : [],
-      timestamp: isSet(object.timestamp) ? Number(object.timestamp) : 0,
     };
   },
 
@@ -1556,7 +1541,6 @@ export const SSMessage_AddNodeData = {
     } else {
       obj.path = [];
     }
-    message.timestamp !== undefined && (obj.timestamp = Math.round(message.timestamp));
     return obj;
   },
 
@@ -1565,13 +1549,12 @@ export const SSMessage_AddNodeData = {
     message.nodeId = object.nodeId ?? "";
     message.userId = object.userId ?? "";
     message.path = object.path?.map((e) => e) || [];
-    message.timestamp = object.timestamp ?? 0;
     return message;
   },
 };
 
 function createBaseSSMessage_RemoveNodeData(): SSMessage_RemoveNodeData {
-  return { nodeId: "", timestamp: 0, promotedNodes: [] };
+  return { nodeId: "", promotedNodes: [] };
 }
 
 export const SSMessage_RemoveNodeData = {
@@ -1579,11 +1562,8 @@ export const SSMessage_RemoveNodeData = {
     if (message.nodeId !== "") {
       writer.uint32(10).string(message.nodeId);
     }
-    if (message.timestamp !== 0) {
-      writer.uint32(16).uint64(message.timestamp);
-    }
     for (const v of message.promotedNodes) {
-      PoolBasicNode.encode(v!, writer.uint32(26).fork()).ldelim();
+      PoolBasicNode.encode(v!, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
@@ -1599,9 +1579,6 @@ export const SSMessage_RemoveNodeData = {
           message.nodeId = reader.string();
           break;
         case 2:
-          message.timestamp = longToNumber(reader.uint64() as Long);
-          break;
-        case 3:
           message.promotedNodes.push(PoolBasicNode.decode(reader, reader.uint32()));
           break;
         default:
@@ -1615,7 +1592,6 @@ export const SSMessage_RemoveNodeData = {
   fromJSON(object: any): SSMessage_RemoveNodeData {
     return {
       nodeId: isSet(object.nodeId) ? String(object.nodeId) : "",
-      timestamp: isSet(object.timestamp) ? Number(object.timestamp) : 0,
       promotedNodes: Array.isArray(object?.promotedNodes)
         ? object.promotedNodes.map((e: any) => PoolBasicNode.fromJSON(e))
         : [],
@@ -1625,7 +1601,6 @@ export const SSMessage_RemoveNodeData = {
   toJSON(message: SSMessage_RemoveNodeData): unknown {
     const obj: any = {};
     message.nodeId !== undefined && (obj.nodeId = message.nodeId);
-    message.timestamp !== undefined && (obj.timestamp = Math.round(message.timestamp));
     if (message.promotedNodes) {
       obj.promotedNodes = message.promotedNodes.map((e) => e ? PoolBasicNode.toJSON(e) : undefined);
     } else {
@@ -1637,28 +1612,27 @@ export const SSMessage_RemoveNodeData = {
   fromPartial<I extends Exact<DeepPartial<SSMessage_RemoveNodeData>, I>>(object: I): SSMessage_RemoveNodeData {
     const message = createBaseSSMessage_RemoveNodeData();
     message.nodeId = object.nodeId ?? "";
-    message.timestamp = object.timestamp ?? 0;
     message.promotedNodes = object.promotedNodes?.map((e) => PoolBasicNode.fromPartial(e)) || [];
     return message;
   },
 };
 
-function createBaseSSMessage_UpdateUserData(): SSMessage_UpdateUserData {
+function createBaseSSMessage_AddUserData(): SSMessage_AddUserData {
   return { userInfo: undefined };
 }
 
-export const SSMessage_UpdateUserData = {
-  encode(message: SSMessage_UpdateUserData, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+export const SSMessage_AddUserData = {
+  encode(message: SSMessage_AddUserData, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
     if (message.userInfo !== undefined) {
       PoolUserInfo.encode(message.userInfo, writer.uint32(10).fork()).ldelim();
     }
     return writer;
   },
 
-  decode(input: _m0.Reader | Uint8Array, length?: number): SSMessage_UpdateUserData {
+  decode(input: _m0.Reader | Uint8Array, length?: number): SSMessage_AddUserData {
     const reader = input instanceof _m0.Reader ? input : new _m0.Reader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSSMessage_UpdateUserData();
+    const message = createBaseSSMessage_AddUserData();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -1673,19 +1647,19 @@ export const SSMessage_UpdateUserData = {
     return message;
   },
 
-  fromJSON(object: any): SSMessage_UpdateUserData {
+  fromJSON(object: any): SSMessage_AddUserData {
     return { userInfo: isSet(object.userInfo) ? PoolUserInfo.fromJSON(object.userInfo) : undefined };
   },
 
-  toJSON(message: SSMessage_UpdateUserData): unknown {
+  toJSON(message: SSMessage_AddUserData): unknown {
     const obj: any = {};
     message.userInfo !== undefined &&
       (obj.userInfo = message.userInfo ? PoolUserInfo.toJSON(message.userInfo) : undefined);
     return obj;
   },
 
-  fromPartial<I extends Exact<DeepPartial<SSMessage_UpdateUserData>, I>>(object: I): SSMessage_UpdateUserData {
-    const message = createBaseSSMessage_UpdateUserData();
+  fromPartial<I extends Exact<DeepPartial<SSMessage_AddUserData>, I>>(object: I): SSMessage_AddUserData {
+    const message = createBaseSSMessage_AddUserData();
     message.userInfo = (object.userInfo !== undefined && object.userInfo !== null)
       ? PoolUserInfo.fromPartial(object.userInfo)
       : undefined;
@@ -1740,25 +1714,6 @@ export const SSMessage_RemoveUserData = {
   },
 };
 
-declare var self: any | undefined;
-declare var window: any | undefined;
-declare var global: any | undefined;
-var tsProtoGlobalThis: any = (() => {
-  if (typeof globalThis !== "undefined") {
-    return globalThis;
-  }
-  if (typeof self !== "undefined") {
-    return self;
-  }
-  if (typeof window !== "undefined") {
-    return window;
-  }
-  if (typeof global !== "undefined") {
-    return global;
-  }
-  throw "Unable to locate global object";
-})();
-
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin ? T
@@ -1770,18 +1725,6 @@ export type DeepPartial<T> = T extends Builtin ? T
 type KeysOfUnion<T> = T extends T ? keyof T : never;
 export type Exact<P, I extends P> = P extends Builtin ? P
   : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
-
-function longToNumber(long: Long): number {
-  if (long.gt(Number.MAX_SAFE_INTEGER)) {
-    throw new tsProtoGlobalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
-  }
-  return long.toNumber();
-}
-
-if (_m0.util.Long !== Long) {
-  _m0.util.Long = Long as any;
-  _m0.configure();
-}
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

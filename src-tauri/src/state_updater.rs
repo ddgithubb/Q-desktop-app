@@ -41,7 +41,7 @@ pub struct StateUpdater {
 
 impl StateUpdater {
     pub fn init() -> Self {
-        let (wake_updater_tx, wake_updater_rx) = flume::bounded(0);
+        let (wake_updater_tx, wake_updater_rx) = flume::bounded(1);
 
         Self::start_state_updater(wake_updater_rx);
 
@@ -55,6 +55,8 @@ impl StateUpdater {
         tokio::spawn(async move {
             loop {
                 let _ = wake_updater_rx.recv_async().await;
+
+                // log::debug!("start_state_updater woken");
 
                 loop {
                     if !STATE_UPDATER.trigger_update_state() {
@@ -85,6 +87,8 @@ impl StateUpdater {
                 progress: progress.load(Ordering::Relaxed),
             });
         }
+
+        // log::debug!("trigger_update_state {:?}", file_downloads_progress.len());
 
         state_update_event(IPCStateUpdate {
             file_downloads_progress,

@@ -33,7 +33,7 @@ use crate::{
     config::{
         BUFFERED_AMOUNT_LOW_THRESHOLD, DC_INIT_BUFFER_MAX_FILL_RATE_TIMEOUT,
         DC_INIT_BUFFER_MIN_FILL_RATE_TIMEOUT, DC_REFILL_RATE_CHUNK_AMOUNT,
-        MAX_DC_BUFFER_CHUNK_AMOUNT, MAX_DC_BUFFER_SIZE,
+        MAX_DC_BUFFER_CHUNK_AMOUNT, MAX_DC_BUFFER_SIZE, DC_REFILL_RATE_SIZE,
     },
     poolpb::{PoolMessagePackage},
     sspb::ss_message,
@@ -73,7 +73,7 @@ struct PoolNodeConnection {
 
 pub struct PoolConn {
     pool_state: Arc<PoolState>,
-    pub(super) pool_net_ref: ArcSwapOption<Weak<PoolNet>>,
+    pub(super) pool_net_ref: ArcSwapOption<PoolNet>,
 
     node_connections: RwLock<HashMap<String, PoolNodeConnection>>,
     min_time_to_send_deque_size: Arc<AtomicU64>,
@@ -102,6 +102,7 @@ impl PoolConn {
     }
 
     pub(super) async fn clean(&self) {
+        self.pool_net_ref.store(None);
         let node_connections: Vec<(String, PoolNodeConnection)> = {
             let mut node_connections = self.node_connections.write();
             node_connections.drain().collect()
@@ -627,7 +628,7 @@ impl PoolConn {
                 info!("DC MAIN OPEN FOR {}", node_id);
                 if let Some(self_clone) = self_clone.upgrade() {
                     self_clone.update_is_fully_connected();
-                    if let Some(pool_net) = (&*self_clone.pool_net_ref.load()).as_ref().unwrap().upgrade() {
+                    if let Some(pool_net) = &*self_clone.pool_net_ref.load() {
                         if !self_clone.pool_state.is_latest() {
                             pool_net.send_latest_request(&node_id).await;
                             pool_net.send_node_info_data().await;
@@ -640,56 +641,54 @@ impl PoolConn {
         })
     }
 
-    fn main_dc_on_message(&self, pool_net: Arc<Weak<PoolNet>>, node_id: String) -> OnMessageHdlrFn {
+    fn main_dc_on_message(&self, pool_net: Arc<PoolNet>, node_id: String) -> OnMessageHdlrFn {
         let self_node_id = self.pool_state.node_id.clone();
         Box::new(move |dc_msg| {
             let self_node_id = self_node_id.clone();
             let node_id = node_id.clone();
             let pool_net = pool_net.clone();
             Box::pin(async move {
-                if let Some(pool_net) = pool_net.upgrade() {
-                    if dc_msg.data.len() == 0 || dc_msg.is_string {
-                        // invalid message
-                        return;
+                if dc_msg.data.len() == 0 || dc_msg.is_string {
+                    // invalid message
+                    return;
+                }
+                if let Ok(msg_pkg) = PoolMessagePackage::decode(dc_msg.data.slice(..)) {
+                    if let Some(src) = &msg_pkg.src {
+                        if src.node_id == self_node_id {
+                            return;
+                        }
                     }
-                    if let Ok(msg_pkg) = PoolMessagePackage::decode(dc_msg.data.slice(..)) {
-                        if let Some(src) = &msg_pkg.src {
-                            if src.node_id == self_node_id {
-                                return;
-                            }
+
+                    if msg_pkg.msg.is_some() {
+                        if !msg_pkg.is_valid_message() {
+                            return;
                         }
 
-                        if msg_pkg.msg.is_some() {
-                            if !msg_pkg.is_valid_message() {
-                                return;
-                            }
-
-                            pool_net
-                                .handle_message(
-                                    MessagePackageBundle {
-                                        msg_pkg: msg_pkg,
-                                        encoded_msg_pkg: dc_msg.data,
-                                        from_node_id: node_id,
-                                    },
-                                )
-                                .await;
-                        } else if msg_pkg.direct_msg.is_some() {
-                            if !msg_pkg.is_valid_direct_message() {
-                                return;
-                            }
-
-                            pool_net
-                                .handle_direct_message(
-                                    MessagePackageBundle {
-                                        msg_pkg: msg_pkg,
-                                        encoded_msg_pkg: dc_msg.data,
-                                        from_node_id: node_id,
-                                    },
-                                )
-                                .await;
+                        pool_net
+                            .handle_message(
+                                MessagePackageBundle {
+                                    msg_pkg: msg_pkg,
+                                    encoded_msg_pkg: dc_msg.data,
+                                    from_node_id: node_id,
+                                },
+                            )
+                            .await;
+                    } else if msg_pkg.direct_msg.is_some() {
+                        if !msg_pkg.is_valid_direct_message() {
+                            return;
                         }
-                        
+
+                        pool_net
+                            .handle_direct_message(
+                                MessagePackageBundle {
+                                    msg_pkg: msg_pkg,
+                                    encoded_msg_pkg: dc_msg.data,
+                                    from_node_id: node_id,
+                                },
+                            )
+                            .await;
                     }
+                    
                 }
             })
         })
@@ -742,7 +741,7 @@ impl PoolConn {
 
     fn chunks_dc_on_message(
         &self,
-        pool_net: Arc<Weak<PoolNet>>,
+        pool_net: Arc<PoolNet>,
         node_id: String,
     ) -> OnMessageHdlrFn {
         let self_node_id = self.pool_state.node_id.clone();
@@ -751,32 +750,29 @@ impl PoolConn {
             let node_id = node_id.clone();
             let pool_net = pool_net.clone();
             Box::pin(async move {
-                if let Some(pool_net) = pool_net.upgrade() {
-                    if dc_msg.data.len() == 0 || dc_msg.is_string {
-                        // invalid message
-                        return;
-                    }
-                    if let Ok(msg_pkg) = PoolMessagePackage::decode(dc_msg.data.slice(..)) {
-                        if let Some(src) = &msg_pkg.src {
-                            if src.node_id == self_node_id {
-                                return;
-                            }
-                        }
-
-                        if !msg_pkg.is_valid_chunk() {
+                if dc_msg.data.len() == 0 || dc_msg.is_string {
+                    // invalid message
+                    return;
+                }
+                if let Ok(msg_pkg) = PoolMessagePackage::decode(dc_msg.data.slice(..)) {
+                    if let Some(src) = &msg_pkg.src {
+                        if src.node_id == self_node_id {
                             return;
                         }
-
-                        pool_net
-                            .handle_chunk(
-                                MessagePackageBundle {
-                                    msg_pkg: msg_pkg,
-                                    encoded_msg_pkg: dc_msg.data,
-                                    from_node_id: node_id,
-                                },
-                            )
-                            .await;
                     }
+
+                    if !msg_pkg.is_valid_chunk() {
+                        return;
+                    }
+
+                    pool_net
+                        .handle_chunk(
+                            MessagePackageBundle {
+                                msg_pkg: msg_pkg,
+                                encoded_msg_pkg: dc_msg.data,
+                                from_node_id: node_id,
+                            },
+                        ).await;
                 }
             })
         })
@@ -802,6 +798,8 @@ impl PoolConn {
                     let diff_time =
                         Instant::now().duration_since(instant_seed).as_millis() as u64 - last_time;
                     let min_time = min_time_to_send_deque_size.load(Ordering::Relaxed);
+
+                    log::debug!("Current throughput: {} MiB/s", (DC_REFILL_RATE_SIZE / 1024) as f64 / diff_time as f64);
 
                     if diff_time < min_time || min_time == 0 {
                         min_time_to_send_deque_size.store(diff_time, Ordering::Relaxed);

@@ -1,6 +1,7 @@
 import { BackendCommands } from "./backend";
 import { appDataDir, join } from '@tauri-apps/api/path';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
+import {} from './events'; // DO NOT REMOVE
 
 export const Backend = new BackendCommands();
 

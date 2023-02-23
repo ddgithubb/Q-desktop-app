@@ -23,9 +23,8 @@ pub struct IPCInitProfile {
 }
 
 #[derive(Clone, Serialize)]
-pub struct IPCOfflinePoolData {
-    file_offers: Vec<PoolFileInfo>,
-    messages: Vec<PoolMessage>,
+pub struct IPCSavedPoolData {
+    pub messages: Vec<PoolMessage>,
 }
 
 #[derive(Clone, Serialize)]
@@ -36,6 +35,7 @@ pub struct IPCPoolNode {
 
 #[derive(Clone, Serialize)]
 pub struct IPCInitPool {
+    pub node_id: String,
     pub pool_info: PoolInfo,
     pub init_nodes: Vec<IPCPoolNode>,
 }
@@ -58,7 +58,7 @@ pub struct IPCRemovePoolNode {
 }
 
 #[derive(Clone, Serialize)]
-pub struct IPCUpdatePoolUser {
+pub struct IPCAddPoolUser {
     pub pool_id: String,
     pub user_info: PoolUserInfo,
 }

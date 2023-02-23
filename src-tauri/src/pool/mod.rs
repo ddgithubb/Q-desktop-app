@@ -13,3 +13,5 @@ pub(self) mod pool_node_position;
 pub(self) mod message_util;
 
 pub(self) mod chunk;
+
+pub(self) mod test_drops;

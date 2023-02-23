@@ -7,10 +7,10 @@ import './PoolMessagesView.css';
 
 import DownloadIcon from '../../assets/download.png';
 import FileIcon from '../../assets/file.png';
-import { UserMapType } from './PoolView';
 import { PoolMessage, PoolFileInfo, PoolMessage_Type, PoolMediaType, PoolImageData, PoolMessage_MediaOfferData } from '../../types/pool.v1';
-import { FeedMessage, NodeStatus, PoolFileDownload, PoolNodeStatus } from '../../types/pool.model';
+import { FeedMessage, NodeStatus, PoolFileDownload, PoolNodeStatus, PoolUserStatus, UserStatus } from '../../types/pool.model';
 import { Backend, getTempAssetURL } from '../../backend/global';
+import { PoolStore } from '../../store/store';
 
 
 const CONSISTENT_MESSAGE_INTERVAL: number = minutesToMillisecond(5);
@@ -38,12 +38,11 @@ window.addEventListener("resize", calcMessageBounds);
 export interface PoolMessagesViewParams {
     poolID: string;
     feed: FeedMessage[];
-    userMap: UserMapType;
 }
 
 export const PoolMessagesView = memo(PoolMessagesViewComponent);
 
-function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewParams) {
+function PoolMessagesViewComponent({ poolID, feed }: PoolMessagesViewParams) {
 
     const [messagesElement, setMessagesElement] = useState<HTMLDivElement | null>(null);
     const [atNewestMessage, setAtNewestMessage] = useState<boolean>(true);
@@ -137,16 +136,7 @@ function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewPa
             </div>
             {
                 poolMessagesView.map((feedMsg, index) => {
-                    if (feedMsg.nodeStatus) {
-                        let nodeStatus: PoolNodeStatus = feedMsg.nodeStatus;
-                            
-                        return (
-                            <div className={"pool-message-container"} key={nodeStatus.nodeID + nodeStatus.status.toString() + nodeStatus.created.toString()}>
-                                <div className="pool-message-date pool-message-portable-date">{formatTime(nodeStatus.created)}</div>
-                                <NodeStatusComponent displayName={userMap.get(nodeStatus.userID)?.user.displayName} nodeStatus={nodeStatus} />
-                            </div>
-                        )
-                    } else if (feedMsg.msg) {
+                    if (feedMsg.msg) {
                         let messageContentElement: JSX.Element = <></>;
                         let msg = feedMsg.msg;
                         let data = msg.data as any;
@@ -209,7 +199,7 @@ function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewPa
                             <div className={"pool-message-container" + (hasHeader ? " pool-header-spacer" : "")} key={msg.msgId}>
                                 {
                                     hasHeader ? (
-                                        <HeaderComponent displayName={userMap.get(msg.userId)?.user.displayName} msg={msg} />
+                                        <HeaderComponent displayName={PoolStore.getDisplayName(msg.userId)} msg={msg} />
                                     ) : (
                                         <div className="pool-message-date pool-message-portable-date">{formatTime(msg.created)}</div>
                                     )
@@ -218,6 +208,24 @@ function PoolMessagesViewComponent({ poolID, feed, userMap }: PoolMessagesViewPa
                             </div>
                         )
 
+                    } else if (feedMsg.nodeStatus) {
+                        let nodeStatus: PoolNodeStatus = feedMsg.nodeStatus;
+                            
+                        return (
+                            <div className={"pool-message-container"} key={nodeStatus.nodeID + nodeStatus.status.toString() + nodeStatus.created.toString()}>
+                                <div className="pool-message-date pool-message-portable-date">{formatTime(nodeStatus.created)}</div>
+                                <NodeStatusComponent nodeStatus={nodeStatus} />
+                            </div>
+                        )
+                    } else if (feedMsg.userStatus) {
+                        let userStatus: PoolUserStatus = feedMsg.userStatus;
+
+                        return (
+                            <div className={"pool-message-container"} key={userStatus.userID + userStatus.status.toString() + userStatus.created.toString()}>
+                                <div className="pool-message-date pool-message-portable-date">{formatTime(userStatus.created)}</div>
+                                <UserStatusComponent displayName={PoolStore.getDisplayName(userStatus.userID)} userStatus={userStatus} />
+                            </div>
+                        )
                     }
                 })
             }
@@ -239,9 +247,17 @@ const HeaderComponent = memo(({ displayName, msg }: { displayName: string | unde
     return !next.displayName || prev.displayName == next.displayName
 });
 
-const NodeStatusComponent = memo(({ displayName, nodeStatus }: { displayName: string | undefined, nodeStatus: PoolNodeStatus }) => (
+const NodeStatusComponent = memo(({ nodeStatus }: { nodeStatus: PoolNodeStatus }) => (
     <div className="pool-message-node-status">
-        {displayName} {"(" + nodeStatus.nodeID + ")"} has {nodeStatus.status == NodeStatus.ACTIVE ? "joined" : "left"}
+        Device {nodeStatus.nodeID} {"(" + nodeStatus.nodeID + ")"} has {nodeStatus.status == NodeStatus.ACTIVE ? "joined" : "left"}
+    </div>
+), (prev, next) => {
+    return !next.nodeStatus.nodeID || prev.nodeStatus.nodeID == next.nodeStatus.nodeID;
+});
+
+const UserStatusComponent = memo(({ displayName, userStatus }: { displayName: string | undefined, userStatus: PoolUserStatus }) => (
+    <div className="pool-message-node-status">
+        User {displayName} {"(" + userStatus.userID + ")"} has {userStatus.status == UserStatus.JOINED ? "joined" : "left"} the pool
     </div>
 ), (prev, next) => {
     return !next.displayName || prev.displayName == next.displayName;
@@ -271,7 +287,7 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
 
     const requestImage = () => {
         if (requesting) return;
-        Backend.events.once(fileInfo.fileId, (success: boolean) => {
+        PoolStore.completedDownloadEvents.once(fileInfo.fileId, (success: boolean) => {
             updateSrc();
             setRequesting(false);
         });

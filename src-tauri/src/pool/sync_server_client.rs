@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
-use log::{info, debug};
+use log::info;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_tungstenite::tungstenite::{self, Message as WSMessage};
@@ -14,13 +14,13 @@ use crate::config::{
     sync_server_connect_endpoint, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_TIMEOUT_SECONDS,
 };
 use crate::events::{
-    add_pool_node_event, init_pool_event, init_profile_event, remove_pool_node_event,
-    remove_pool_user_event, update_pool_user_event,
+    add_pool_node_event, add_pool_user_event, init_pool_event, init_profile_event,
+    remove_pool_node_event, remove_pool_user_event,
 };
 use crate::ipc::{IPCInitPool, IPCInitProfile, IPCPoolNode};
 use crate::sspb::ss_message::{
-    self, AddNodeData, Data as SSMessageData, InitPoolData, Op as SSMessageOp, RemoveNodeData,
-    RemoveUserData, SdpResponseData, SuccessResponseData, UpdateUserData,
+    self, AddNodeData, AddUserData, Data as SSMessageData, InitPoolData, Op as SSMessageOp,
+    RemoveNodeData, RemoveUserData, SdpResponseData, SuccessResponseData,
 };
 use crate::sspb::SsMessage as SSMessage;
 use crate::STORE_MANAGER;
@@ -88,11 +88,15 @@ impl SyncServerClient {
             (*pool_state_ptr).user = STORE_MANAGER.user_info();
             (*pool_state_ptr).node_id = STORE_MANAGER.user_info().device.device_id;
         }
-        
+
+        log::info!("nodeID: {}", self.pool_state.node_id);
+        log::info!("userID: {}", self.pool_state.user.user_id);
+
         init_profile_event(IPCInitProfile {
             device: _temp_my_user_info.devices[0].clone(),
             user_info: _temp_my_user_info,
         });
+
         // TEMP
 
         STORE_MANAGER.update_pool(self.pool_state.pool_id.clone(), pool_info.clone());
@@ -113,6 +117,7 @@ impl SyncServerClient {
         };
 
         init_pool_event(IPCInitPool {
+            node_id: self.pool_state.node_id.clone(),
             pool_info,
             init_nodes,
         });
@@ -132,20 +137,21 @@ impl SyncServerClient {
     }
 
     fn remove_node(&self, remove_node_data: RemoveNodeData) {
-        self.pool_state.remove_node(&remove_node_data.node_id);
+        self.pool_state
+            .remove_node(&remove_node_data.node_id, remove_node_data.promoted_nodes);
 
         remove_pool_node_event(&self.pool_state.pool_id, remove_node_data.node_id);
     }
 
-    fn update_user(&self, update_user_data: UpdateUserData) {
-        let user_info = match update_user_data.user_info {
+    fn add_user(&self, add_user_data: AddUserData) {
+        let user_info = match add_user_data.user_info {
             Some(user_info) => user_info,
             None => return,
         };
 
-        STORE_MANAGER.update_pool_user(&self.pool_state.pool_id, user_info.clone());
+        STORE_MANAGER.add_pool_user(&self.pool_state.pool_id, user_info.clone());
 
-        update_pool_user_event(&self.pool_state.pool_id, user_info);
+        add_pool_user_event(&self.pool_state.pool_id, user_info);
     }
 
     fn remove_user(&self, remove_user_data: RemoveUserData) {
@@ -203,7 +209,7 @@ impl SyncServerClient {
                             continue;
                         }
 
-                        debug!("WS MESSAGE {:?}", ss_msg);
+                        // debug!("WS MESSAGE {:?}", ss_msg);
 
                         let ss_client_clone = self.clone();
                         tokio::spawn(async move {
@@ -333,9 +339,9 @@ impl SyncServerClient {
                         self.remove_node(remove_node_data);
                     }
                 }
-                SSMessageOp::UpdateUser => {
-                    if let Some(SSMessageData::UpdateUserData(update_user_data)) = ss_msg.data {
-                        self.update_user(update_user_data);
+                SSMessageOp::AddUser => {
+                    if let Some(SSMessageData::AddUserData(add_user_data)) = ss_msg.data {
+                        self.add_user(add_user_data);
                     }
                 }
                 SSMessageOp::RemoveUser => {
@@ -357,10 +363,6 @@ impl SyncServerClient {
         let heartbeat_buf: Vec<u8> = SyncServerClient::encode_ss_message(heartbeat_msg);
         tokio::spawn(async move {
             loop {
-                if self.pool_state.is_closed() {
-                    break;
-                }
-
                 self.heartbeat_timeout.store(true, Ordering::SeqCst);
 
                 // debug!("SEND WS HEARTBEAT");
@@ -368,17 +370,24 @@ impl SyncServerClient {
                     break;
                 }
 
-                tokio::time::sleep(Duration::from_secs(HEARTBEAT_TIMEOUT_SECONDS)).await;
+                tokio::select! {
+                    _ = self.pool_state.close_signal() => {
+                        break;
+                    },
+                    _ = tokio::time::sleep(Duration::from_secs(HEARTBEAT_TIMEOUT_SECONDS)) => {},
+                }
 
                 if self.heartbeat_timeout.load(Ordering::SeqCst) {
                     self.close().await;
                     break;
                 }
 
-                tokio::time::sleep(Duration::from_secs(
-                    HEARTBEAT_INTERVAL_SECONDS - HEARTBEAT_TIMEOUT_SECONDS,
-                ))
-                .await;
+                tokio::select! {
+                    _ = self.pool_state.close_signal() => {
+                        break;
+                    },
+                    _ = tokio::time::sleep(Duration::from_secs(HEARTBEAT_INTERVAL_SECONDS - HEARTBEAT_TIMEOUT_SECONDS,)) => {},
+                }
             }
         });
     }
