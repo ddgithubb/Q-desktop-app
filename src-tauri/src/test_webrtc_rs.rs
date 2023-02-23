@@ -6,7 +6,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use app::config::MAX_DC_BUFFER_SIZE;
 use bytes::{Bytes, BytesMut};
 
 use webrtc::{
@@ -21,6 +20,8 @@ use webrtc::{
         RTCPeerConnection,
     },
 };
+
+use crate::config::MAX_DC_BUFFER_SIZE;
 
 // const CHUNK_SIZE: usize = 64 * 1000; // 64 KB
 const CHUNK_SIZE: usize = 32 * 1024;
@@ -351,17 +352,17 @@ async fn create_responder() -> anyhow::Result<RTCPeerConnection> {
     Ok(pc)
 }
 
-pub async fn attatch_requester_dc(connection: &RTCPeerConnection, dc: &RTCDataChannel) -> anyhow::Result<()> {
-    let options = Some(RTCDataChannelInit {
-        negotiated: Some(2),
-        ordered: Some(false),
-        max_retransmits: Some(0u16),
-        ..Default::default()
-    });
+// let options = Some(RTCDataChannelInit {
+//     negotiated: Some(2),
+//     ordered: Some(false),
+//     max_retransmits: Some(0u16),
+//     ..Default::default()
+// });
 
-    // Create a data channel to send data over a peer connection
-    let dc = connection.create_data_channel("data", options).await?;
+// // Create a data channel to send data over a peer connection
+// let dc = connection.create_data_channel("data", options).await?;
 
+pub async fn attatch_requester_dc(dc: &Arc<RTCDataChannel>) -> anyhow::Result<()> {
     // Use mpsc channel to send and receive a signal when more data can be sent
     let (more_can_be_sent, mut maybe_more_can_be_sent) = tokio::sync::mpsc::channel(1);
 
@@ -408,16 +409,7 @@ pub async fn attatch_requester_dc(connection: &RTCPeerConnection, dc: &RTCDataCh
     anyhow::Ok(())
 }
 
-pub async fn attatch_responder_dc(connection: &RTCPeerConnection, dc: &RTCDataChannel) -> anyhow::Result<()> {
-    let options = Some(RTCDataChannelInit {
-        negotiated: Some(2),
-        ordered: Some(false),
-        max_retransmits: Some(0u16),
-        ..Default::default()
-    });
-
-    // Create a data channel to send data over a peer connection
-    let dc = connection.create_data_channel("data", options).await?;
+pub async fn attatch_responder_dc(dc: &RTCDataChannel) -> anyhow::Result<()> {
     let total_bytes_received = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
     let shared_total_bytes_received = total_bytes_received.clone();
