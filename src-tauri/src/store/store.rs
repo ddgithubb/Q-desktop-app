@@ -2,7 +2,11 @@ use std::{fs::{File, rename}, ops::{Deref, DerefMut}, io::{Write, Read}, path::P
 
 use serde::{Serialize, Deserialize};
 
+use crate::config::PRODUCTION_MODE;
+
 use super::store_manager::StoreManager;
+
+const DISABLE_STORE: bool = !PRODUCTION_MODE;
 
 pub struct Store<T> {
     name: String,
@@ -37,6 +41,12 @@ impl<'a, T: Default + Serialize + for<'de> Deserialize<'de>> Store<T> {
     }
 
     pub fn load(&mut self) {
+        if DISABLE_STORE {
+            return;
+        } else {
+            unreachable!();
+        }
+
         let (mut store_file, store_path) = Self::open_store_file(&self.name, false).unwrap();
         let mut b = Vec::new();
         store_file.read_to_end(&mut b).unwrap();
@@ -47,6 +57,12 @@ impl<'a, T: Default + Serialize + for<'de> Deserialize<'de>> Store<T> {
     }
 
     pub fn update(&mut self) {
+        if DISABLE_STORE {
+            return;
+        } else {
+            unreachable!();
+        }
+
         let (mut tmp_store_file, tmp_path) = Self::open_store_file(&self.name, true).unwrap();
         tmp_store_file.set_len(0).unwrap();
         let b = serde_json::to_vec_pretty(&self.store_data).unwrap();

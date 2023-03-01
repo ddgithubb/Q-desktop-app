@@ -388,13 +388,17 @@ impl FileManager {
             }
         };
 
+        log::debug!("chunk_sender_loop : start");
+
         let mut chunk_number: u64 = 0;
         loop {
             let dest_node_ids: Option<Vec<String>> = if !broadcast {
                 let mut file_requests = chunk_sender.file_requests.lock();
                 let file_requests_len = file_requests.len();
 
-                // log::debug!("chunk_sender : file_requests {:?}", file_requests);
+                // if chunk_number % 100 == 0 {
+                //     log::debug!("chunk_sender : file_requests {:?}", file_requests);
+                // }
 
                 if file_requests.len() == 0 {
                     return;
@@ -632,6 +636,9 @@ impl FileManager {
                             .diff(&file_download.chunks_downloaded_ranges)
                     };
 
+                    println!("Chunks Missing {:?}", chunks_missing);
+                    continue;
+
                     self.request_chunks_missing(
                         file_info.file_id.clone(),
                         request_node_id,
@@ -824,7 +831,7 @@ impl ChunkSender {
 
         let mut existing_file_request: Option<&mut FileRequest> = None;
         for i in 0..file_requests.len() {
-            if file_requests[i].file_id == file_request_data.file_id {
+            if file_requests[i].requesting_node_id == requesting_node_id {
                 existing_file_request = Some(&mut file_requests[i]);
                 break;
             }

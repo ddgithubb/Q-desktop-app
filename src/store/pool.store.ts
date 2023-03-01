@@ -67,6 +67,10 @@ export class PoolStoreClass {
         console.log("Updated downloads progress:", this.downloadsProgress);
     }
 
+    removeDownloadProgress(fileID: string) {
+        this.downloadsProgress.delete(fileID);
+    }
+
     getDownloadProgress(fileID: string): number {
         return this.downloadsProgress.get(fileID) || 0;
     }

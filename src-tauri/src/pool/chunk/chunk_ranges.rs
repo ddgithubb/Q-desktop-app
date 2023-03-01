@@ -3,7 +3,10 @@ use std::collections::HashMap;
 
 use crate::poolpb::PoolChunkRange;
 
-use super::chunk_util::{cache_chunk_number_to_chunk_number, chunk_number_to_cache_chunk_number, cache_chunk_number_to_partner_int_path, total_size_to_total_chunks};
+use super::chunk_util::{
+    cache_chunk_number_to_chunk_number, cache_chunk_number_to_partner_int_path,
+    chunk_number_to_cache_chunk_number, total_size_to_total_chunks,
+};
 
 pub type ChunkRanges = Vec<PoolChunkRange>;
 pub type StaticChunkRanges = [PoolChunkRange];
@@ -30,7 +33,12 @@ pub trait ChunkRangesUtil {
 
     fn intersection(&self, chunk_ranges: &StaticChunkRanges) -> ChunkRanges;
 
-    fn promise_valid_chunks(&self, promise_chunks: &StaticChunkRanges, promised_chunks: &mut ChunkRanges, partner_int_path: u32) -> ChunkRanges;
+    fn promise_valid_chunks(
+        &self,
+        promise_chunks: &StaticChunkRanges,
+        promised_chunks: &mut ChunkRanges,
+        partner_int_path: u32,
+    ) -> ChunkRanges;
 
     fn map_promised(&self, promised_map: &mut HashMap<u64, ChunkRanges>);
 
@@ -91,7 +99,7 @@ impl ChunkRangesUtil for ChunkRanges {
                     end: chunk_range.end,
                 };
                 pos - 1
-            } else if self[pos].start - 1 <= chunk_range.end {
+            } else if pos < self.len() && self[pos].start - 1 <= chunk_range.end {
                 self[pos] = PoolChunkRange {
                     start: chunk_range.start,
                     end: max(chunk_range.end, self[pos].end),
@@ -133,12 +141,10 @@ impl ChunkRangesUtil for ChunkRanges {
 
     // Precondition: compacted
     fn add_chunk(&mut self, chunk_number: u64) {
-        self.add(
-            &PoolChunkRange {
-                start: chunk_number,
-                end: chunk_number,
-            }
-        )
+        self.add(&PoolChunkRange {
+            start: chunk_number,
+            end: chunk_number,
+        })
     }
 
     // Removes all chunk ranges within a cache chunk
@@ -165,20 +171,20 @@ impl ChunkRangesUtil for ChunkRanges {
     // pos is at beginning of multiple same values
     // (-pos - 1) is where it should go if value not found
     fn search(&self, chunk_range_start: u64) -> i64 {
-        let mut m = 0;
-        let mut n = self.len() - 1;
+        let mut m: i64 = 0;
+        let mut n: i64 = self.len() as i64 - 1;
         while m <= n {
             let k = (n + m) >> 1;
-            let cmp: i64 = chunk_range_start as i64 - self[k].start as i64;
+            let cmp: i64 = chunk_range_start as i64 - self[k as usize].start as i64;
             if cmp > 0 {
                 m = k + 1;
             } else if cmp < 0 {
                 n = k - 1;
             } else {
-                return k as i64;
+                return k;
             }
         }
-        return -(m as i64) - 1;
+        return -m - 1;
     }
 
     // Creates new chunk ranges of self & !diff_chunk_ranges
@@ -259,7 +265,12 @@ impl ChunkRangesUtil for ChunkRanges {
     }
 
     // Creates new chunk ranges of self & promise_chunks with partner int path restriction
-    fn promise_valid_chunks(&self, promise_chunks: &StaticChunkRanges, promised_chunks: &mut ChunkRanges, partner_int_path: u32) -> ChunkRanges {
+    fn promise_valid_chunks(
+        &self,
+        promise_chunks: &StaticChunkRanges,
+        promised_chunks: &mut ChunkRanges,
+        partner_int_path: u32,
+    ) -> ChunkRanges {
         let i1_len = self.len();
         let i2_len = promise_chunks.len();
 
@@ -272,11 +283,13 @@ impl ChunkRangesUtil for ChunkRanges {
             let end = min(self[i1].end, promise_chunks[i2].end);
 
             if start <= end {
-                for i in chunk_number_to_cache_chunk_number(start)..=chunk_number_to_cache_chunk_number(end) {
+                for i in chunk_number_to_cache_chunk_number(start)
+                    ..=chunk_number_to_cache_chunk_number(end)
+                {
                     if cache_chunk_number_to_partner_int_path(i) == partner_int_path {
                         let chunk_range = PoolChunkRange {
                             start: max(start, cache_chunk_number_to_chunk_number(i)),
-                            end: min(end, cache_chunk_number_to_chunk_number(i + 1) - 1)
+                            end: min(end, cache_chunk_number_to_chunk_number(i + 1) - 1),
                         };
 
                         // In theory, the negation should never happen

@@ -1,11 +1,12 @@
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
-use std::fs::{remove_file, File};
+use std::fs::{create_dir, remove_file, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::mem;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use flume::{Receiver, Sender};
 use parking_lot::Mutex;
@@ -15,7 +16,7 @@ use crate::config::{
 };
 use crate::poolpb::pool_message::FileRequestData;
 use crate::poolpb::{PoolChunkMessage, PoolChunkRange};
-use crate::store::file_store::FileStore;
+use crate::store::store_manager::StoreManager;
 
 use super::chunk::chunk_ranges::{ChunkRanges, ChunkRangesUtil};
 use super::chunk::chunk_util::{
@@ -68,20 +69,15 @@ impl CacheManager {
         pool_state: Arc<PoolState>,
         send_chunk_tx: Sender<SendChunkInfo>,
     ) -> Option<Arc<Self>> {
-        let (writer_file_handle, cache_file_path) = match FileStore::create_cache_file_handle(
-            pool_state.pool_id.clone(),
-            pool_state.instant_seed.clone()
-        ) {
-            Some(file) => file,
-            None => return None,
-        };
+        let (writer_file_handle, cache_file_path) =
+            match Self::create_cache_file_handle(pool_state.pool_id.clone()) {
+                Some(file) => file,
+                None => return None,
+            };
 
-        let (reader_file_handle, _) = match FileStore::create_cache_file_handle(
-            pool_state.pool_id.clone(),
-            pool_state.instant_seed.clone(),
-        ) {
-            Some(file) => file,
-            None => return None,
+        let reader_file_handle = match File::options().read(true).open(cache_file_path.clone()) {
+            Ok(file_handle) => file_handle,
+            Err(_) => return None,
         };
 
         let (cache_file_chunk, cache_file_chunk_recv) =
@@ -237,6 +233,8 @@ impl CacheManager {
     ) -> usize {
         let cache_chunk_number = chunk_number_to_cache_chunk_number(chunk_msg.chunk_number);
 
+        // log::debug!("handle_cache_file_chunk : chunk_number {}", chunk_msg.chunk_number);
+
         let (cache_chunk_pos, new_chunk, active_lock) = {
             let mut cache_chunks = self.cache_chunks.lock();
 
@@ -299,7 +297,6 @@ impl CacheManager {
                     file_id: chunk_msg.file_id,
                     cache_chunk_number,
                     promised_requests: HashMap::new(),
-                    // active_state: Arc::new(AtomicUsize::new(WRITE_ACTIVE_STATE)),
                     active_lock: Arc::new(Mutex::new(())),
                     chunk_ranges: Vec::with_capacity(1),
                 };
@@ -502,6 +499,48 @@ impl CacheManager {
             if close {
                 return;
             }
+        }
+    }
+
+    pub fn cache_folder_path() -> Option<PathBuf> {
+        match StoreManager::app_data_dir() {
+            Some(mut path) => {
+                path.push("cache");
+                Some(path)
+            }
+            None => return None,
+        }
+    }
+
+    pub fn create_cache_file_handle(pool_id: String) -> Option<(File, PathBuf)> {
+        let mut path = match Self::cache_folder_path() {
+            Some(path) => path,
+            None => return None,
+        };
+        let _ = create_dir(path.clone());
+
+        if !path.exists() {
+            return None;
+        }
+
+        path.push(format!(
+            "{}-{}",
+            pool_id,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_micros()
+        ));
+        let file = File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path.clone())
+            .ok();
+
+        match file {
+            Some(file) => Some((file, path)),
+            None => None,
         }
     }
 }

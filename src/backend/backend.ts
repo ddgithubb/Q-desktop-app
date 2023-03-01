@@ -143,15 +143,15 @@ export class BackendCommands {
     removeFileDownload(poolId: string, fileDownload: PoolFileDownload) {
         let key = this.getPoolKey(poolId);
         if (key == undefined) return;
+        
+        let removeDownloadAction: RemoveDownloadAction = {
+            key,
+            fileID: fileDownload.fileInfo.fileId,
+        };
+        store.dispatch(poolAction.removeDownload(removeDownloadAction));
 
         if (fileDownload.status == DownloadProgressStatus.DOWNLOADING) {
             invoke('remove_file_download', { poolId, fileId: fileDownload.fileInfo.fileId });
-        } else {
-            let removeDownloadAction: RemoveDownloadAction = {
-                key,
-                fileID: fileDownload.fileInfo.fileId,
-            };
-            store.dispatch(poolAction.removeDownload(removeDownloadAction));
         }
     }
 }

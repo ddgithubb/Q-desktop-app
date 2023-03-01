@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { StaticCenter } from "../components/StaticCenter";
 import { DEFAULT_TEST_POOL_NAME } from "../pool/Pools";
@@ -10,6 +10,10 @@ export function JoinPool() {
 
     let [poolID, setPoolID] = useState<string>(searchParams.get("poolid") || DEFAULT_TEST_POOL_NAME);
     let [displayName, setDisplayName] = useState<string>("");
+
+    useEffect(() => {
+        navigate('/pool/' + poolID + "?displayName=TEST");
+    }, []);
 
     const goToPool = () => {
         if (displayName == "") return;

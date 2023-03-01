@@ -107,6 +107,12 @@ impl StoreManager {
     }
 
     pub fn remove_file_offer(&self, file_id: &String) -> bool {
+        if !PRODUCTION_MODE {
+            return true;
+        } else {
+            unreachable!();
+        }
+
         let mut file_store = self.file_store.lock();
         if let Some(file_path) = file_store.file_paths.remove(file_id) {
             if let Some(pool_offers) = file_store.file_offers.get_mut(&file_path.pool_id) {
@@ -282,41 +288,6 @@ impl FileStore {
             }
         }
         false
-    }
-
-    pub fn cache_folder_path() -> Option<PathBuf> {
-        match StoreManager::app_data_dir() {
-            Some(mut path) => {
-                path.push("cache");
-                Some(path)
-            }
-            None => return None,
-        }
-    }
-
-    pub fn create_cache_file_handle(pool_id: String, instant_seed: Instant) -> Option<(File, PathBuf)> {
-        let mut path = match Self::cache_folder_path() {
-            Some(path) => path,
-            None => return None,
-        };
-        let _ = create_dir(path.clone());
-
-        if !path.exists() {
-            return None;
-        }
-
-        path.push(format!("{}-{}", pool_id, instant_seed.elapsed().as_millis()));
-        let file = File::options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path.clone())
-            .ok();
-
-        match file {
-            Some(file) => Some((file, path)),
-            None => None,
-        }
     }
 
     fn temp_folder_path() -> Option<PathBuf> {

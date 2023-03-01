@@ -1,7 +1,4 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@600&display=swap');
-
 :root {
   --main-color-lightest: #d2deff;
   --main-color-light: #548ce6;
@@ -21,6 +18,17 @@
 
   --success-color: #30c64c;
   --danger-color: #D43333;
+}
+
+@font-face {
+  font-family: 'Noto Sans';
+  src: url(./fonts/NotoSans-Regular.ttf);
+}
+
+@font-face {
+  font-family: 'Noto Sans';
+  font-weight: 600;
+  src: url(./fonts/NotoSans-SemiBold.ttf);
 }
 
 body {

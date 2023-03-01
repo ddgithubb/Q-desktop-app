@@ -16,12 +16,13 @@ use app::{
     GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE,
 };
 use log::info;
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 
 #[tokio::main]
 async fn main() {
     if !PRODUCTION_MODE {
       env::set_var("RUST_LOG", "app=trace");
+      env::set_var("RUST_BACKTRACE", "1");
     }
 
     env_logger::init();
@@ -40,6 +41,19 @@ async fn main() {
             GLOBAL_APP_HANDLE.store(Some(Arc::new(app.app_handle())));
 
             Ok(())
+        })
+        .on_window_event(|event| {
+            match event.event() {
+                WindowEvent::Destroyed => {
+                    let (destroyed_tx, destroyed_rx) = flume::bounded(0);
+                    tokio::spawn(async move {
+                        destroy_app().await;
+                        let _ = destroyed_tx.send(());
+                    });
+                    let _ = destroyed_rx.recv();
+                },
+                _ => {}
+            }
         })
         .invoke_handler(tauri::generate_handler![
             connect_to_pool,
@@ -60,4 +74,11 @@ async fn init_app() {
     lazy_static::initialize(&POOL_MANAGER);
     lazy_static::initialize(&STORE_MANAGER);
     lazy_static::initialize(&MESSAGES_DB);
+    info!("Initialized App!");
+}
+
+async fn destroy_app() {
+    info!("Destroying App...");
+    POOL_MANAGER.clean_all().await;
+    info!("Destroyed App!");
 }

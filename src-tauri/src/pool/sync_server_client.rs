@@ -247,6 +247,7 @@ impl SyncServerClient {
                     if let Some(SSMessageData::UpdateNodePositionData(update_node_position_data)) =
                         ss_msg.data
                     {
+                        log::info!("New Node Position: {:?}", update_node_position_data);
                         self.pool_state.set_node_position(
                             PoolNodePosition::from_update_node_position_data(
                                 update_node_position_data,

@@ -8,23 +8,22 @@ pub struct MessagePackageBundle {
     pub msg_pkg: PoolMessagePackage,
     pub encoded_msg_pkg: Bytes,
     pub from_node_id: String,
+    pub is_chunk: bool,
 }
 
 impl MessagePackageBundle {
     pub fn create(msg_pkg: PoolMessagePackage, from_node_id: String) -> Self {
         let mut buf: Vec<u8> = Vec::new();
         let _ = msg_pkg.encode(&mut buf);
+        let is_chunk = msg_pkg.chunk_msg.is_some();
         MessagePackageBundle {
             msg_pkg,
             encoded_msg_pkg: Bytes::from(buf),
             from_node_id,
+            is_chunk
         }
     }
-
-    pub fn has_chunks(&self) -> bool {
-        return self.msg_pkg.chunk_msg.is_some()
-    }
-
+    
     // Checks if target node is a dest, then re-encodes if so
     // Performance penalty is negligible for now
     pub fn check_and_update_is_dest(&mut self, target_node_id: &String) -> bool {

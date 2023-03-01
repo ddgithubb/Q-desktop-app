@@ -58,6 +58,8 @@ const poolSlice = createSlice({
             pool.nodeID = initPool.node_id;
             pool.users = initPool.pool_info.users;
 
+            PoolStore.clearActiveDevices(pool.poolID);
+
             for (const user of pool.users) {
                 PoolStore.setDisplayName(user.userId, user.displayName);
             }
@@ -278,6 +280,7 @@ const poolSlice = createSlice({
             for (let i = 0; i < pool.downloadQueue.length; i++) {
                 if (pool.downloadQueue[i].fileInfo!.fileId == action.payload.fileID) {
                     pool.downloadQueue.splice(i, 1);
+                    PoolStore.removeDownloadProgress(action.payload.fileID);
                     return;
                 }
             }

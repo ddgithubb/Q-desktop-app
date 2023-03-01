@@ -429,6 +429,11 @@ impl PoolNet {
         }
     }
 
+    fn validate_received_messages(&self, msg_pkg_bundle: &MessagePackageBundle) -> bool {
+        let mut received_messages = self.received_messages.lock();
+        received_messages.append_message(&msg_pkg_bundle.msg_pkg.msg.as_ref().unwrap().msg_id)
+    }
+
     fn update_latest(&self, latest_reply_data: LatestReplyData) {
         if self.pool_state.is_latest() {
             // Maybe use diff algorithm to get any extra data?
@@ -471,17 +476,17 @@ impl PoolNet {
 
         file_request_data.requested_chunks.compact();
 
-        if !self
-            .file_manager
-            .promise_file_chunks(
-                requesting_node_id.clone(),
-                file_request_data,
-                partner_int_path,
-            )
-        {
+        if !self.file_manager.promise_file_chunks(
+            requesting_node_id.clone(),
+            file_request_data,
+            partner_int_path,
+        ) {
             if let Some(cache_manager) = &self.cache_manager {
-                return cache_manager
-                    .promise_cache_chunks(requesting_node_id, file_request_data, partner_int_path);
+                return cache_manager.promise_cache_chunks(
+                    requesting_node_id,
+                    file_request_data,
+                    partner_int_path,
+                );
             }
             false
         } else {
@@ -507,8 +512,14 @@ impl PoolNet {
             self.file_manager
                 .handle_file_chunk(chunk_info.chunk_msg.clone());
         }
-        
-        // log::debug!("send_chunk {}", chunk_info.chunk_msg.chunk_number);
+
+        if let Some(dest_node_ids) = &chunk_info.dest_node_ids {
+            if dest_node_ids.is_empty() {
+                return;
+            }
+        }
+
+        // log::debug!("send_chunk {} {:?}", chunk_info.chunk_msg.chunk_number, chunk_info.dest_node_ids);
 
         let partner_int_path = chunk_number_to_partner_int_path(chunk_info.chunk_msg.chunk_number);
         let mut msg_pkg =
@@ -524,13 +535,16 @@ impl PoolNet {
     }
 
     pub(super) async fn handle_chunk(&self, mut msg_pkg_bundle: MessagePackageBundle) {
-        if msg_pkg_bundle.msg_pkg.dests.is_empty() {
-            self.file_manager
-                .handle_file_chunk(msg_pkg_bundle.take_chunk_msg());
-        } else {
-            if msg_pkg_bundle.check_and_update_is_dest(&self.pool_state.node_id) {
-                self.file_manager
-                    .handle_file_chunk(msg_pkg_bundle.take_chunk_msg());
+        // check_and_update_is_dest needs to go before take_msg or re-encoding will fail
+        let has_dest = !msg_pkg_bundle.msg_pkg.dests.is_empty();
+        let is_dest = msg_pkg_bundle.check_and_update_is_dest(&self.pool_state.node_id);
+        let chunk_msg = msg_pkg_bundle.take_chunk_msg();
+
+        // log::debug!("handle_chunk : chunk number {} from_node_id {}", chunk_msg.chunk_number, msg_pkg_bundle.from_node_id);
+
+        if has_dest {
+            if is_dest {
+                self.file_manager.handle_file_chunk(chunk_msg);
 
                 if msg_pkg_bundle.msg_pkg.dests.is_empty() {
                     return;
@@ -538,8 +552,6 @@ impl PoolNet {
             } else if let Some(cache_manager) = &self.cache_manager {
                 if let Some(partner_int_path) = msg_pkg_bundle.msg_pkg.partner_int_path {
                     if partner_int_path == self.pool_state.partner_int() as u32 {
-                        let chunk_msg = msg_pkg_bundle.take_chunk_msg();
-
                         if self.pool_state.is_available_file(&chunk_msg.file_id) {
                             cache_manager.cache_file_chunk(chunk_msg);
                         }
@@ -548,6 +560,8 @@ impl PoolNet {
             } else {
                 // shouldn't happen much
             }
+        } else {
+            self.file_manager.handle_file_chunk(chunk_msg);
         }
 
         self.pool_conn.distribute_message(msg_pkg_bundle).await;
@@ -577,20 +591,20 @@ impl PoolNet {
     pub(super) async fn handle_message(&self, mut msg_pkg_bundle: MessagePackageBundle) {
         // log::debug!("UNPROCESSED handle_message {:?}", msg_pkg_bundle.msg_pkg);
 
+        if !self.validate_received_messages(&msg_pkg_bundle) {
+            return;
+        }
+
+        // check_and_update_is_dest needs to go before take_msg or re-encoding will fail
+        let has_dest = !msg_pkg_bundle.msg_pkg.dests.is_empty();
+        let is_dest = msg_pkg_bundle.check_and_update_is_dest(&self.pool_state.node_id);
         let mut msg = msg_pkg_bundle.take_msg(); // should never panic or else logic error
         let src_node_id = msg_pkg_bundle.src_node_id(); // should never panic or else logic error
 
-        {
-            let mut received_messages = self.received_messages.lock();
-            if !received_messages.append_message(&msg.msg_id) {
-                return;
-            }
-        }
-
         log::debug!("handle_message {:?} {:?}", msg_pkg_bundle.msg_pkg, msg);
 
-        if msg_pkg_bundle.msg_pkg.dests.len() != 0 {
-            if msg_pkg_bundle.check_and_update_is_dest(&self.pool_state.node_id) {
+        if has_dest {
+            if is_dest {
                 match msg.r#type() {
                     PoolMessageType::FileRequest => {
                         let file_request_data = match msg.data {
@@ -635,20 +649,18 @@ impl PoolNet {
                             if partner_int_path as usize == self.pool_state.partner_int()
                                 || src_node_id == self.pool_state.node_id
                             {
-                                modified = self
-                                    .promise_chunks(
-                                        src_node_id,
-                                        file_request_data,
-                                        partner_int_path,
-                                    );
+                                modified = self.promise_chunks(
+                                    src_node_id,
+                                    file_request_data,
+                                    partner_int_path,
+                                );
                             }
                         }
                     }
                     _ => (),
                 }
                 if modified {
-                    log::info!("Modified Messages {:?}", msg);
-
+                    // log::debug!("Modified Messages {:?}", msg);
                     msg_pkg_bundle.msg_pkg.msg = Some(msg);
                     msg_pkg_bundle = MessagePackageBundle::create(
                         msg_pkg_bundle.msg_pkg,

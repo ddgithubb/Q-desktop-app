@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, fs::remove_dir_all};
 
 use log::info;
 use tokio::sync::RwLock as AsyncRwLock;
@@ -7,7 +7,7 @@ use crate::{events::reconnect_pool_event, poolpb::PoolFileInfo};
 
 use super::{
     pool_conn::PoolConn, pool_net::PoolNet, pool_state::PoolState,
-    sync_server_client::SyncServerClient,
+    sync_server_client::SyncServerClient, cache_manager::CacheManager,
 };
 
 struct Pool {
@@ -36,13 +36,11 @@ impl Pool {
         }
     }
 
-    pub(self) fn clean(self) {
-        tokio::spawn(async move {
-            self.pool_state.set_disconnect();
-            self.sync_server_client.close().await;
-            self.pool_net.clean().await;
-            self.pool_conn.clean().await;
-        });
+    pub(self) async fn clean(self) {
+        self.pool_state.set_disconnect();
+        self.sync_server_client.close().await;
+        self.pool_net.clean().await;
+        self.pool_conn.clean().await;
     }
 }
 
@@ -59,20 +57,32 @@ impl PoolManager {
         }
     }
 
+    pub async fn clean_all(&self) {
+        let mut active_pools = self.active_pools.write().await;
+        for (_, pool) in active_pools.drain() {
+            pool.clean().await;
+        }
+
+        // Redudancy + to account for previous failed destroyed
+        if let Some(cache_folder_path) = CacheManager::cache_folder_path() {
+            let _ = remove_dir_all(cache_folder_path);
+        }
+    }
+
     pub async fn connect_to_pool(&self, pool_id: String) {
         let pool: Pool = Pool::init(pool_id.clone());
 
         let mut active_pools = self.active_pools.write().await;
         if let Some(existing_pool) = active_pools.insert(pool_id, pool) {
             reconnect_pool_event(&existing_pool.pool_state.pool_id);
-            existing_pool.clean();
+            existing_pool.clean().await;
         }
     }
 
     pub async fn disconnect_from_pool(&self, pool_id: String) {
         let mut active_pools = self.active_pools.write().await;
         if let Some(pool) = active_pools.remove(&pool_id) {
-            pool.clean();
+            pool.clean().await;
         }
     }
 

@@ -8,11 +8,11 @@ use std::{
 };
 
 use anyhow::anyhow;
-use arc_swap::{ArcSwapOption};
+use arc_swap::ArcSwapOption;
 use bytes::Bytes;
 use flume::{Receiver, Sender};
 use log::info;
-use parking_lot::{RwLock};
+use parking_lot::RwLock;
 use prost::Message;
 use tokio::sync::{broadcast::Sender as BroadcastSender, Mutex as AsyncMutex};
 use webrtc::{
@@ -32,17 +32,15 @@ use webrtc::{
 use crate::{
     config::{
         BUFFERED_AMOUNT_LOW_THRESHOLD, DC_INIT_BUFFER_MAX_FILL_RATE_TIMEOUT,
-        DC_INIT_BUFFER_MIN_FILL_RATE_TIMEOUT, DC_REFILL_RATE_CHUNK_AMOUNT,
-        MAX_DC_BUFFER_CHUNK_AMOUNT, MAX_DC_BUFFER_SIZE, DC_REFILL_RATE_SIZE,
+        DC_INIT_BUFFER_MIN_FILL_RATE_TIMEOUT, DC_REFILL_RATE_CHUNK_AMOUNT, DC_REFILL_RATE_SIZE,
+        MAX_DC_BUFFER_CHUNK_AMOUNT, MAX_DC_BUFFER_SIZE,
     },
-    poolpb::{PoolMessagePackage},
+    poolpb::PoolMessagePackage,
     sspb::ss_message,
 };
 
 use super::{
-    message_util::{
-        message_checks::MessageChecks, message_package_bundle::MessagePackageBundle,
-    },
+    message_util::{message_checks::MessageChecks, message_package_bundle::MessagePackageBundle},
     pool_net::PoolNet,
     pool_node_position::PoolPanelNodeIDs,
     pool_state::PoolState,
@@ -61,7 +59,6 @@ struct ChunksBuffer {
     last_max_buffer_time: Arc<AtomicU64>,
 }
 struct PoolNodeConnection {
-    // position: usize, // BUG: position not updated and also not needed?
     connection: Arc<RTCPeerConnection>,
     main_data_channel: Arc<RTCDataChannel>,
     chunks_data_channel: Arc<RTCDataChannel>,
@@ -268,10 +265,7 @@ impl PoolConn {
         // drop(node_connection._closed_tx); implied
     }
 
-    pub(super) async fn distribute_message(
-        &self,
-        mut msg_pkg_bundle: MessagePackageBundle,
-    ) {
+    pub(super) async fn distribute_message(&self, mut msg_pkg_bundle: MessagePackageBundle) {
         let src = msg_pkg_bundle.take_src();
 
         // let src_path = match self.pool_state.get_active_node_path(&src.node_id) {
@@ -320,10 +314,6 @@ impl PoolConn {
 
             // Prevents right to send to any other panel if it's not source node and the message does not correspond to the partnerInt
             'dest_loop: for dest in dests {
-                // if dest.visited {
-                //     continue;
-                // }
-
                 let dest_node_id = &dest.node_id;
 
                 for i in 0..3 {
@@ -468,11 +458,7 @@ impl PoolConn {
         }
     }
 
-    async fn send_to_panel(
-        &self,
-        panel: &PoolPanelNodeIDs,
-        msg_pkg_bundle: &MessagePackageBundle,
-    ) {
+    async fn send_to_panel(&self, panel: &PoolPanelNodeIDs, msg_pkg_bundle: &MessagePackageBundle) {
         let mut has_partner_int_path = false;
         if let Some(partner_int_path) = msg_pkg_bundle.msg_pkg.partner_int_path {
             if let Some(node_id) = &panel[partner_int_path as usize] {
@@ -500,16 +486,20 @@ impl PoolConn {
         if node_id.is_empty() {
             return false;
         }
-        if msg_pkg_bundle.has_chunks() {
+        if msg_pkg_bundle.is_chunk {
             let (chunks_dc, chunks_buffer, closed_rx) = {
                 let node_connections = self.node_connections.read();
                 match node_connections.get(node_id) {
                     Some(nc) => (
+                        // Bundle into one Arc to avoid 3 clones
                         nc.chunks_data_channel.clone(),
                         nc.chunks_buffer.clone(),
                         nc.closed_rx.clone(),
                     ),
-                    None => return false,
+                    None => {
+                        log::warn!("send_data_channel : no node connection node_id {}", node_id);
+                        return false;
+                    }
                 }
             };
 
@@ -531,6 +521,8 @@ impl PoolConn {
                 let _ = chunks_dc.send(&msg_pkg_bundle.encoded_msg_pkg).await;
                 return true;
             } else if chunks_dc.ready_state() == RTCDataChannelState::Connecting {
+                // log::debug!("send_data_channel : connecting {}", node_id);
+
                 let buffer_rate_limiter = {
                     let mut init_buffer_lock = chunks_buffer.init_buffer.lock().await;
                     let init_buffer = match &mut *init_buffer_lock {
@@ -625,8 +617,8 @@ impl PoolConn {
     fn main_dc_on_open(self_clone: Weak<Self>, node_id: String) -> OnOpenHdlrFn {
         Box::new(move || {
             Box::pin(async move {
-                info!("DC MAIN OPEN FOR {}", node_id);
                 if let Some(self_clone) = self_clone.upgrade() {
+                    info!("main_dc_in_open : for {} with node_id {}", self_clone.pool_state.node_id, node_id);
                     self_clone.update_is_fully_connected();
                     if let Some(pool_net) = &*self_clone.pool_net_ref.load() {
                         if !self_clone.pool_state.is_latest() {
@@ -665,13 +657,12 @@ impl PoolConn {
                         }
 
                         pool_net
-                            .handle_message(
-                                MessagePackageBundle {
-                                    msg_pkg: msg_pkg,
-                                    encoded_msg_pkg: dc_msg.data,
-                                    from_node_id: node_id,
-                                },
-                            )
+                            .handle_message(MessagePackageBundle {
+                                msg_pkg: msg_pkg,
+                                encoded_msg_pkg: dc_msg.data,
+                                from_node_id: node_id,
+                                is_chunk: false,
+                            })
                             .await;
                     } else if msg_pkg.direct_msg.is_some() {
                         if !msg_pkg.is_valid_direct_message() {
@@ -679,16 +670,14 @@ impl PoolConn {
                         }
 
                         pool_net
-                            .handle_direct_message(
-                                MessagePackageBundle {
-                                    msg_pkg: msg_pkg,
-                                    encoded_msg_pkg: dc_msg.data,
-                                    from_node_id: node_id,
-                                },
-                            )
+                            .handle_direct_message(MessagePackageBundle {
+                                msg_pkg: msg_pkg,
+                                encoded_msg_pkg: dc_msg.data,
+                                from_node_id: node_id,
+                                is_chunk: false,
+                            })
                             .await;
                     }
-                    
                 }
             })
         })
@@ -700,7 +689,7 @@ impl PoolConn {
             let node_id = node_id.clone();
             Box::pin(async move {
                 if let Some(self_clone) = self_clone.upgrade() {
-                    info!("DC MAIN CLOSED FOR {}", node_id);
+                    info!("main_dc_on_close : node_id {}", node_id);
                     self_clone.update_is_fully_connected();
                     let _ = self_clone
                         .report_node_chan
@@ -739,11 +728,7 @@ impl PoolConn {
         })
     }
 
-    fn chunks_dc_on_message(
-        &self,
-        pool_net: Arc<PoolNet>,
-        node_id: String,
-    ) -> OnMessageHdlrFn {
+    fn chunks_dc_on_message(&self, pool_net: Arc<PoolNet>, node_id: String) -> OnMessageHdlrFn {
         let self_node_id = self.pool_state.node_id.clone();
         Box::new(move |dc_msg| {
             let self_node_id = self_node_id.clone();
@@ -766,13 +751,13 @@ impl PoolConn {
                     }
 
                     pool_net
-                        .handle_chunk(
-                            MessagePackageBundle {
-                                msg_pkg: msg_pkg,
-                                encoded_msg_pkg: dc_msg.data,
-                                from_node_id: node_id,
-                            },
-                        ).await;
+                        .handle_chunk(MessagePackageBundle {
+                            msg_pkg: msg_pkg,
+                            encoded_msg_pkg: dc_msg.data,
+                            from_node_id: node_id,
+                            is_chunk: true,
+                        })
+                        .await;
                 }
             })
         })
@@ -782,14 +767,18 @@ impl PoolConn {
         &self,
         signal_chunks_send_tx: BroadcastSender<()>,
         last_max_buffer_time: Arc<AtomicU64>,
+        _target_node_id: String,
     ) -> OnBufferedAmountLowFn {
         let instant_seed = self.pool_state.instant_seed;
         let min_time_to_send_deque_size = self.min_time_to_send_deque_size.clone();
+        let _node_id = self.pool_state.node_id.clone();
 
         Box::new(move || {
             let signal_chunks_send_tx = signal_chunks_send_tx.clone();
             let last_max_buffer_time = last_max_buffer_time.clone();
             let min_time_to_send_deque_size = min_time_to_send_deque_size.clone();
+            let _node_id = _node_id.clone();
+            let _target_node_id = _target_node_id.clone();
 
             Box::pin(async move {
                 let last_time = last_max_buffer_time.load(Ordering::SeqCst);
@@ -799,7 +788,12 @@ impl PoolConn {
                         Instant::now().duration_since(instant_seed).as_millis() as u64 - last_time;
                     let min_time = min_time_to_send_deque_size.load(Ordering::Relaxed);
 
-                    log::debug!("Current throughput: {} MiB/s", (DC_REFILL_RATE_SIZE / 1024) as f64 / diff_time as f64);
+                    log::debug!(
+                        "Current throughput: {:.03} MiB/s for {} to {}",
+                        (DC_REFILL_RATE_SIZE / 1024) as f64 / diff_time as f64,
+                        _node_id,
+                        _target_node_id
+                    );
 
                     if diff_time < min_time || min_time == 0 {
                         min_time_to_send_deque_size.store(diff_time, Ordering::Relaxed);
@@ -871,10 +865,7 @@ impl PoolConn {
 
         node_connection
             .main_data_channel
-            .on_open(Self::main_dc_on_open(
-                Arc::downgrade(self),
-                node_id.clone(),
-            ));
+            .on_open(Self::main_dc_on_open(Arc::downgrade(self), node_id.clone()));
 
         node_connection
             .main_data_channel
@@ -920,6 +911,7 @@ impl PoolConn {
                 self,
                 node_connection.chunks_buffer.signal_chunks_send_tx.clone(),
                 last_max_buffer_time,
+                node_id.clone(),
             ))
             .await;
 
