@@ -122,15 +122,13 @@ impl PoolManager {
     pub async fn download_file(&self, pool_id: &String, file_info: PoolFileInfo, dir_path: String) {
         let active_pools = self.active_pools.read().await;
         if let Some(pool) = active_pools.get(pool_id) {
-            let dir_path = PathBuf::from(dir_path);
-
-            if let Ok(metadata) = dir_path.metadata() {
-                if !metadata.is_dir() {
-                    return;
-                }
-
-                return pool.pool_net.download_file(file_info, dir_path).await;
-            }
+            let dir_path = if dir_path.is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(dir_path))
+            };
+            
+            pool.pool_net.download_file(file_info, dir_path).await;
         }
     }
 

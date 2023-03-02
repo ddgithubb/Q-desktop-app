@@ -84,7 +84,7 @@ export class BackendCommands {
             title: "Add Image",
             filters: [{
                 name: 'Image',
-                extensions: ['png', 'jpeg'],
+                extensions: ['png', 'jpg', 'jpeg'],
             }]
         });
 
@@ -95,15 +95,15 @@ export class BackendCommands {
         invoke('add_image_offer', { poolId, filePath });
     }
 
-    async downloadFile(poolId: string, fileInfo: PoolFileInfo) {
+    async downloadFile(poolId: string, fileInfo: PoolFileInfo, isMedia: boolean = false): Promise<boolean> {
         let key = this.getPoolKey(poolId);
-        if (key == undefined) return;
+        if (key == undefined) return false;
 
         let pool = store.getState().pool.pools[key];
         for (const download of pool.downloadQueue) {
             if (download.fileInfo.fileId == fileInfo.fileId) {
                 message("Already downloading");
-                return;
+                return false;
             }
         }
 
@@ -117,20 +117,26 @@ export class BackendCommands {
 
         if (!isAvailable) {
             message("File not available");
-            return;
+            return false;
         };
 
-        let dirPath = await open({
-            multiple: false,
-            directory: true,
-            title: "Choose Save Directory",
-        });
-        
-        if (!dirPath || typeof dirPath != 'string') {
-            return;
+        let dirPath = "";
+        if (!isMedia) {
+            let path = await open({
+                multiple: false,
+                directory: true,
+                title: "Choose Save Directory",
+            });
+            if (!path || typeof path != 'string') {
+                return false;
+            }
+
+            dirPath = path;
         }
 
-        invoke('download_file', { poolId, fileInfo, dirPath });
+        await invoke('download_file', { poolId, fileInfo, dirPath });
+        
+        return true;
     }
 
     retractFileOffer(poolId: string, fileId: string) {

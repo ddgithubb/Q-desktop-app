@@ -272,36 +272,54 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
         updateSrc();
     }, []);
 
+    useEffect(() => {
+        if (!requesting) return;
+        let callback = (success: boolean) => {
+            console.log("file complete success: ", success);
+            updateSrc();
+            setRequesting(false);
+        };
+        PoolStore.completedDownloadEvents.once(fileInfo.fileId, callback);
+        return () => {
+            PoolStore.completedDownloadEvents.removeListener(fileInfo.fileId, callback);
+        }
+    }, [requesting]);
+
     const hasMedia = (): boolean => {
         return src != "";
     }
 
     const updateSrc = async () => {
-        let src = await getTempAssetURL(poolID, fileInfo.fileId);
-        console.log("Media Source: ", src);
-        if (src != "") {
+        try {
+            let src = await getTempAssetURL(poolID, fileInfo.fileId);
+            console.log("Media Source: ", src);
             setSrc(src);
             setRequesting(false);
+        } catch (e) {
+            setSrc("");
         }
     }
 
     const requestImage = () => {
         if (requesting) return;
-        PoolStore.completedDownloadEvents.once(fileInfo.fileId, (success: boolean) => {
-            updateSrc();
-            setRequesting(false);
+        Backend.downloadFile(poolID, fileInfo, true).then((success) => {
+            if (success) {
+                setRequesting(true);
+            }
         });
-        setRequesting(true);
-        Backend.downloadFile(poolID, fileInfo);
     }
 
     return (
         <div className="pool-message-image-container">
             <div className="pool-message-image-sub-container">
                 <img
-                    loading="lazy"
                     className={"pool-message-image" + (!hasMedia() ? " pool-message-image-preview-blur" : "")}
                     src={src == "" ? imageData.previewImageBase64 : src}
+                    onError={() => {
+                        // Error means that file exists but is not done downloading
+                        setSrc("");
+                        setRequesting(true);
+                    }}
                     height={Math.min(400, (imageData.height / imageData.width) * Math.min(400, imageData.width, window.innerWidth - 80))} />
                 {
                     !hasMedia() ? (

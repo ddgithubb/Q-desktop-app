@@ -1,14 +1,14 @@
 use std::{
     collections::{HashMap, VecDeque},
-    fs::{create_dir, read_dir, File},
+    fs::{create_dir, read_dir},
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH, Instant},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::{FILE_ID_LENGTH, MAX_TEMP_FILES_SIZE_PER_POOL, MAX_TEMP_FILE_SIZE, PRODUCTION_MODE},
+    config::{FILE_ID_LENGTH, MAX_TEMP_FILES_SIZE_PER_POOL, MAX_TEMP_FILE_SIZE},
     poolpb::PoolFileInfo,
 };
 
@@ -39,7 +39,7 @@ pub struct FileStore {
     file_offers: HashMap<String, HashMap<String, PoolFileInfo>>, // pool_id -> normalized_path.to_str() -> file_info
 
     #[serde(skip)]
-    file_paths: HashMap<String, FilePathInfo>, //  file_id -> file_path_info
+    file_paths: HashMap<String, FilePathInfo>, // file_id -> file_path_info
     #[serde(skip)]
     temp_file_queues: HashMap<String, TempFileQueue>, // pool_id -> temp_file_queue
 }
@@ -66,14 +66,7 @@ impl StoreManager {
         Vec::new()
     }
 
-    #[allow(unused_variables)]
     pub fn add_file_offer(&self, pool_id: &String, file_info: PoolFileInfo, path: PathBuf) -> bool {
-        if !PRODUCTION_MODE {
-            return true;
-        } else {
-            unreachable!();
-        }
-
         if let Some(normalized_path) = FileStore::normalize_path(path) {
             if let Some(normalized_path) = normalized_path.to_str() {
                 let mut file_store = self.file_store.lock();
@@ -107,12 +100,6 @@ impl StoreManager {
     }
 
     pub fn remove_file_offer(&self, file_id: &String) -> bool {
-        if !PRODUCTION_MODE {
-            return true;
-        } else {
-            unreachable!();
-        }
-
         let mut file_store = self.file_store.lock();
         if let Some(file_path) = file_store.file_paths.remove(file_id) {
             if let Some(pool_offers) = file_store.file_offers.get_mut(&file_path.pool_id) {
@@ -125,7 +112,7 @@ impl StoreManager {
         false
     }
 
-    pub fn check_existing_file(&self, file_id: &String) -> Option<PathBuf> {
+    pub fn check_file_exists(&self, file_id: &String) -> Option<PathBuf> {
         let file_store = self.file_store.lock();
         if let Some(file_path) = file_store.file_paths.get(file_id) {
             let path = PathBuf::from(file_path.normalized_path.clone());

@@ -6,7 +6,7 @@
     "distDir": "../build"
   },
   "package": {
-    "productName": "pool-net-desktop",
+    "productName": "Pool Net",
     "version": "0.1.0"
   },
   "tauri": {
@@ -18,8 +18,12 @@
       "protocol": {
         "asset": true,
         "assetScope": [
-          "$LOCALDATA/*"
+          "**",
+          "$APPDATA/**"
         ]
+      },
+      "path": {
+        "all": true
       }
     },
     "bundle": {

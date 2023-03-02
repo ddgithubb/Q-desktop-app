@@ -936,7 +936,7 @@ impl PoolConn {
 
     fn direction_of_message(&self, my_path: &Vec<u32>, src_path: &Vec<u32>) -> (bool, bool) {
         let mut send_to_parent = false;
-        let mut send_to_child = false;
+        let mut send_to_child = true;
 
         if my_path.len() < src_path.len() {
             for i in 0..my_path.len() {
@@ -950,15 +950,18 @@ impl PoolConn {
                 }
             }
         } else if my_path.len() == src_path.len() {
-            let mut send = true;
+            let mut same_path = true;
             for i in 0..my_path.len() {
                 if my_path[i] != src_path[i] {
-                    send = false;
+                    same_path = false;
                     break;
                 }
             }
-            send_to_parent = send;
-            send_to_child = send;
+
+            if same_path {
+                send_to_parent = true;
+                send_to_child = true;
+            }
         }
 
         (send_to_parent, send_to_child)

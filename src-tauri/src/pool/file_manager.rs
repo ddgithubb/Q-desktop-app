@@ -21,7 +21,7 @@ use crate::{
         CHUNKS_MISSING_POLLING_INTERVAL, CHUNK_SIZE, MAX_CHUNKS_MISSING_RETRY,
         MAX_POLL_COUNT_BEFORE_SEND, MAX_TEMP_FILE_SIZE,
     },
-    events::{complete_pool_file_download_event, add_file_download_event},
+    events::{add_file_download_event, complete_pool_file_download_event},
     pool::chunk::{chunk_ranges::create_full_chunk_range, chunk_util::total_size_to_total_chunks},
     poolpb::{pool_message::FileRequestData, PoolChunkMessage, PoolFileInfo},
     store::file_store::{FileStore, TempFile},
@@ -74,6 +74,7 @@ pub(super) struct FileDownload {
     chunks_downloaded_ranges: ChunkRanges,
 
     requested_node_id: String,
+    start_instant: Instant,
 }
 
 pub(super) struct FileManager {
@@ -314,6 +315,7 @@ impl FileManager {
             chunks_downloaded: 0,
             chunks_downloaded_ranges: ChunkRanges::new(),
             requested_node_id: requested_node_id.clone(),
+            start_instant: Instant::now(),
         };
 
         let mut file_downloads = self.file_downloads.lock();
@@ -332,15 +334,11 @@ impl FileManager {
         self.add_chunk_sender(file_info.clone(), path, false);
 
         add_file_download_event(&self.pool_state.pool_id, file_info.clone());
-        
+
         STATE_UPDATER
             .register_download_progress(file_info.file_id.clone(), file_download_progress.clone());
 
-        info!(
-            "Downloading file {}, at {:?}",
-            file_info.file_id,
-            Instant::now()
-        );
+        info!("Downloading file {} requesting {}", file_info.file_id, requested_node_id);
 
         let file_manager_clone = self.clone();
         tokio::task::spawn_blocking(move || {
@@ -636,8 +634,9 @@ impl FileManager {
                             .diff(&file_download.chunks_downloaded_ranges)
                     };
 
-                    println!("Chunks Missing {:?}", chunks_missing);
-                    continue;
+                    // Uncomment to disable chunksMissing
+                    // println!("Chunks Missing {:?}", chunks_missing);
+                    // continue;
 
                     self.request_chunks_missing(
                         file_info.file_id.clone(),
@@ -719,10 +718,13 @@ impl FileManager {
 
         let success =
             !fail_override && file_download.chunks_downloaded == file_download.total_chunks;
+
         info!(
-            "Completed file {}, at {:?}. Success: {}",
+            "Completed file {}, at {:.2}. Success: {}",
             file_id,
-            Instant::now(),
+            Instant::now()
+                .duration_since(file_download.start_instant)
+                .as_secs_f32(),
             success
         );
 

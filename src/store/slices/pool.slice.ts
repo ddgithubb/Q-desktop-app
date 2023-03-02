@@ -184,6 +184,20 @@ const poolSlice = createSlice({
                 pool.feed.shift();
             }
 
+            for (let i = 0; i < pool.availableFiles.length; i++) {
+                let fileOffer = pool.availableFiles[i];
+                for (let j = 0; j < fileOffer.seederNodeIds.length; j++) {
+                    if (fileOffer.seederNodeIds[j] == nodeID) {
+                        fileOffer.seederNodeIds.splice(j, 1);
+                        break;
+                    }
+                }
+
+                if (fileOffer.seederNodeIds.length == 0) {
+                    pool.availableFiles.splice(i, 1);
+                }
+            }
+
             PoolStore.removeActiveDevice(pool.poolID, nodeID);
         },
         initFileSeeders(state: PoolsState, action: PayloadAction<InitFileSeedersAction>) {

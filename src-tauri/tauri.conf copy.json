@@ -21,6 +21,9 @@
         "assetScope": [
           "$LOCALDATA/*"
         ]
+      },
+      "path": {
+        "all": true
       }
     },
     "bundle": {

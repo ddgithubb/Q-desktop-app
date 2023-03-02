@@ -29,7 +29,6 @@ const INIT_POOL_MESSAGES_EVENT: string = "init-pool-messages";
 const APPEND_POOL_MESSAGE_EVENT: string = "append-pool-message";
 
 listen(STATE_UPDATE_EVENT, (event) => {
-    console.log("State update", event.payload);
     let state: IPCStateUpdate = event.payload as any;
     PoolStore.updateDownloadProgress(state.file_downloads_progress);
 });

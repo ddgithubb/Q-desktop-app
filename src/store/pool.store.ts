@@ -64,7 +64,6 @@ export class PoolStoreClass {
         for (const progress of downloads_progress) {
             this.downloadsProgress.set(progress.file_id, progress.progress);
         }
-        console.log("Updated downloads progress:", this.downloadsProgress);
     }
 
     removeDownloadProgress(fileID: string) {

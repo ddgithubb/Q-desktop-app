@@ -10,7 +10,7 @@ use base64::Engine;
 use bytes::Bytes;
 use flume::Receiver;
 
-use image::GenericImageView;
+use image::{GenericImageView};
 use nanoid::nanoid;
 use parking_lot::Mutex;
 
@@ -214,40 +214,17 @@ impl PoolNet {
             return;
         }
 
-        let image = match image::open(path.clone()) {
-            Ok(image) => image,
+        let (image_data_tx, image_data_rx) = flume::bounded(0);
+        let path_clone = path.clone();
+        tokio::task::spawn_blocking(move || {
+            let image_data = Self::generate_image_data(path_clone);
+            let _ = image_data_tx.send(image_data);
+        });
+
+        let image_data = match image_data_rx.recv_async().await {
+            Ok(Ok(image_data)) => image_data,
             _ => return,
         };
-
-        let (width, height) = image.dimensions();
-
-        let image = if width < height {
-            image.resize(
-                PREVIEW_IMAGE_DIMENSION,
-                height,
-                image::imageops::FilterType::Nearest,
-            )
-        } else {
-            image.resize(
-                width,
-                PREVIEW_IMAGE_DIMENSION,
-                image::imageops::FilterType::Nearest,
-            )
-        };
-
-        let mut preview_img_buf = Vec::new();
-        match image.write_to(
-            &mut Cursor::new(&mut preview_img_buf),
-            image::ImageOutputFormat::Png,
-        ) {
-            Ok(_) => {}
-            _ => return,
-        };
-
-        let preview_image_base64 = format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(preview_img_buf)
-        );
 
         if !STORE_MANAGER.add_file_offer(&self.pool_state.pool_id, file_offer.clone(), path.clone())
         {
@@ -262,11 +239,7 @@ impl PoolNet {
         let media_offer_data = MediaOfferData {
             file_info: Some(file_offer),
             media_type: PoolMediaType::Image.into(),
-            media_data: Some(MediaData::ImageData(PoolImageData {
-                width,
-                height,
-                preview_image_base64,
-            })),
+            media_data: Some(MediaData::ImageData(image_data)),
         };
 
         self.send_message(
@@ -280,15 +253,17 @@ impl PoolNet {
         self.file_manager.broadcast_file(file_id);
     }
 
-    pub(super) async fn download_file(&self, file_info: PoolFileInfo, mut dir_path: PathBuf) {
-        if let Some(existing_path) = STORE_MANAGER.check_existing_file(&file_info.file_id) {
-            let pool_id = self.pool_state.pool_id.clone();
-            tokio::spawn(async move {
-                FileStore::create_valid_file_path(&mut dir_path, &file_info.file_name);
-                let success = tokio::fs::copy(existing_path, dir_path).await.is_ok();
+    pub(super) async fn download_file(&self, file_info: PoolFileInfo, dir_path: Option<PathBuf>) {
+        if let Some(existing_path) = STORE_MANAGER.check_file_exists(&file_info.file_id) {
+            if let Some(mut dir_path) = dir_path {
+                let pool_id = self.pool_state.pool_id.clone();
+                tokio::spawn(async move {
+                    FileStore::create_valid_file_path(&mut dir_path, &file_info.file_name);
+                    let success = tokio::fs::copy(existing_path, dir_path).await.is_ok();
 
-                complete_pool_file_download_event(&pool_id, file_info.file_id, success);
-            });
+                    complete_pool_file_download_event(&pool_id, file_info.file_id, success);
+                });
+            }
             return;
         }
 
@@ -299,10 +274,7 @@ impl PoolNet {
         let file_id = file_info.file_id.clone();
         let full_chunk_range = create_full_chunk_range(file_info.total_size);
 
-        if let Ok(request_node_id) = self
-            .file_manager
-            .init_file_download(file_info, Some(dir_path))
-        {
+        if let Ok(request_node_id) = self.file_manager.init_file_download(file_info, dir_path) {
             self.send_file_request(file_id, request_node_id, full_chunk_range, false)
                 .await;
         }
@@ -322,12 +294,12 @@ impl PoolNet {
             request_from_origin,
         };
 
-        for i in 0..3 {
+        for partner_int_path in 0..3 {
             self.send_message(
                 PoolMessageType::FileRequest,
                 Some(PoolMessageData::FileRequestData(file_request_data.clone())),
                 Some(vec![request_node_id.clone()]),
-                Some(i),
+                Some(partner_int_path),
             )
             .await;
         }
@@ -724,13 +696,14 @@ impl PoolNet {
                                 return;
                             }
 
+                            self.pool_state.add_file_offer(&src_node_id, file_info);
+
                             if src_node_id != self.pool_state.node_id {
                                 let _ = self
                                     .file_manager
                                     .init_file_download(file_info.clone(), None);
                             }
 
-                            self.pool_state.add_file_offer(&src_node_id, file_info);
                             self.add_message(msg);
                         }
                     }
@@ -810,5 +783,42 @@ impl PoolNet {
             });
         }
         return None;
+    }
+
+    fn generate_image_data(path: PathBuf) -> anyhow::Result<PoolImageData> {
+        let image = match image::open(path) {
+            Ok(image) => image,
+            _ => return Err(anyhow::anyhow!("cannot open image")),
+        };
+
+        let (width, height) = image.dimensions();
+
+        let (new_width, new_height) = if width < height {
+            (PREVIEW_IMAGE_DIMENSION, height)
+        } else {
+            (width, PREVIEW_IMAGE_DIMENSION)
+        };
+
+        let image = image.resize(new_width, new_height, image::imageops::FilterType::Nearest);
+
+        let mut preview_img_buf = Vec::new();
+        match image.write_to(
+            &mut Cursor::new(&mut preview_img_buf),
+            image::ImageOutputFormat::Png,
+        ) {
+            Ok(_) => {}
+            _ => return Err(anyhow::anyhow!("cannot open cannot write image")),
+        };
+
+        let preview_image_base64 = format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(preview_img_buf)
+        );
+
+        anyhow::Ok(PoolImageData {
+            width,
+            height,
+            preview_image_base64,
+        })
     }
 }

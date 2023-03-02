@@ -181,7 +181,6 @@ function DownloadQueue({ poolID, downloadQueue }: { poolID: string, downloadQueu
         if (downloadQueue.length != 0) {
             if (refreshTimer.current == undefined) {
                 refreshTimer.current = setInterval(() => {
-                    console.log("FORCE UPDATE");
                     updateState({});
                 }, 500);
             }

@@ -334,14 +334,14 @@ impl CacheManager {
         let write_ok = if chunk_diff >= 0 {
             if let Ok(_) = file_handle.seek(SeekFrom::Start(offset)) {
                 if file_handle.write_all(&*chunk_msg.chunk).is_ok() {
-                    true
-                } else {
                     if chunk_diff != 0 {
                         let fill_buf: Vec<u8> = vec![0u8; chunk_diff as usize];
                         file_handle.write_all(&fill_buf).is_ok()
                     } else {
                         true
                     }
+                } else {
+                    false
                 }
             } else {
                 false
