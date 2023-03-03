@@ -12,6 +12,11 @@ import { FeedMessage, NodeStatus, PoolFileDownload, PoolNodeStatus, PoolUserStat
 import { Backend, getTempAssetURL } from '../../backend/global';
 import { PoolStore } from '../../store/store';
 
+// TESTING
+// const MIN_MESSAGE_HEIGHT: number = 50;
+// const MESSAGES_VIEWPORT: number = 1;
+// const EXTRA_MESSAGES_VIEWPORT: number = 1;
+// TESTING
 
 const CONSISTENT_MESSAGE_INTERVAL: number = minutesToMillisecond(5);
 const MIN_MESSAGE_HEIGHT: number = 28;
@@ -29,7 +34,7 @@ const calcMessageBounds = () => {
     MAIN_MESSAGES_TO_RENDER = MESSAGES_VIEWPORT * MESSAGES_PER_VIEWPORT
     EXTRA_MESSAGES_TO_RENDER = EXTRA_MESSAGES_VIEWPORT * MESSAGES_PER_VIEWPORT
     MAX_MESSAGES_TO_RENDER = 2 * EXTRA_MESSAGES_TO_RENDER + MAIN_MESSAGES_TO_RENDER;
-    //console.log(MESSAGES_PER_VIEWPORT, MAIN_MESSAGES_TO_RENDER, EXTRA_MESSAGES_TO_RENDER, MAX_MESSAGES_TO_RENDER);
+    // console.log(MESSAGES_PER_VIEWPORT, MAIN_MESSAGES_TO_RENDER, EXTRA_MESSAGES_TO_RENDER, MAX_MESSAGES_TO_RENDER);
 };
 
 calcMessageBounds();
@@ -274,15 +279,17 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
 
     useEffect(() => {
         let callback = (success: boolean) => {
-            console.log("file complete success: ", success);
-            updateSrc();
+            console.log("File complete success: ", success);
+            if (success) {
+                updateSrc();
+            }
             setRequesting(false);
         };
         PoolStore.completedDownloadEvents.once(fileInfo.fileId, callback);
         return () => {
             PoolStore.completedDownloadEvents.removeListener(fileInfo.fileId, callback);
         }
-    }, [src]);
+    });
 
     const hasMedia = (): boolean => {
         return src != "";
@@ -291,7 +298,7 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
     const updateSrc = async () => {
         try {
             let src = await getTempAssetURL(poolID, fileInfo.fileId);
-            console.log("Media Source: ", src);
+            // console.log("Media Source: ", src);
             setSrc(src);
             setRequesting(false);
         } catch (e) {

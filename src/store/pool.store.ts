@@ -73,4 +73,8 @@ export class PoolStoreClass {
     getDownloadProgress(fileID: string): number {
         return this.downloadsProgress.get(fileID) || 0;
     }
+
+    hasDownload(fileID: string): boolean {
+        return this.downloadsProgress.has(fileID);
+    }
 }  

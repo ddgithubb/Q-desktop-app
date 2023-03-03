@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
-    fs::{create_dir, read_dir},
+    fs::{create_dir, read_dir, remove_file},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH}, io::Read,
 };
@@ -19,6 +19,7 @@ use crate::{
 
 use super::store_manager::StoreManager;
 
+#[derive(Debug)]
 pub struct TempFile {
     pub file_id: String,
     pub file_size: u64,
@@ -26,6 +27,7 @@ pub struct TempFile {
     pub path: PathBuf,
 }
 
+#[derive(Debug)]
 pub struct TempFileQueue {
     size: u64,
     queue: VecDeque<TempFile>,
@@ -164,19 +166,17 @@ impl StoreManager {
                 .insert(pool_id.clone(), temp_file_queue);
         }
 
-        let mut size_diff: isize = 0;
         let temp_file_queue = file_store.temp_file_queues.get_mut(pool_id).unwrap();
-        size_diff += temp_file.file_size as isize;
+        temp_file_queue.size += temp_file.file_size;
         temp_file_queue.queue.push_back(temp_file);
 
         let mut removed_temp_files: Vec<TempFile> = Vec::new();
         while temp_file_queue.size > MAX_TEMP_FILES_SIZE_PER_POOL {
-            let removed = temp_file_queue.queue.pop_front().unwrap();
-            size_diff -= removed.file_size as isize;
-            removed_temp_files.push(removed);
+            let removed_temp_file = temp_file_queue.queue.pop_front().unwrap();
+            let _ = remove_file(removed_temp_file.path.clone());
+            temp_file_queue.size -= removed_temp_file.file_size;
+            removed_temp_files.push(removed_temp_file);
         }
-
-        temp_file_queue.size = ((temp_file_queue.size as isize) + size_diff) as u64;
 
         if removed_temp_files.is_empty() {
             None
@@ -210,6 +210,7 @@ impl FileStore {
     }
 
     fn init_temp_file_queue(&mut self, pool_id: String, path: PathBuf) -> std::io::Result<()> {
+        let mut size = 0;
         let mut queue: Vec<TempFile> = Vec::new();
 
         for entry in read_dir(path)? {
@@ -235,12 +236,14 @@ impl FileStore {
                         continue;
                     }
 
-                    // Potentially remove if old?
+                    // Remove if old?
 
                     if let Ok(created) = metadata.created() {
+                        let file_size = metadata.len();
+                        size += file_size;
                         queue.push(TempFile {
                             file_id,
-                            file_size: metadata.len(),
+                            file_size,
                             created,
                             path,
                         });
@@ -253,7 +256,7 @@ impl FileStore {
         self.temp_file_queues.insert(
             pool_id,
             TempFileQueue {
-                size: 0,
+                size,
                 queue: VecDeque::from(queue),
             },
         );

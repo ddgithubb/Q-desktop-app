@@ -5,7 +5,7 @@ use crate::{
         IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload,
         IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCPoolNode,
         IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate,
-        IPCAddPoolUser, IPCReconnectPool, IPCAddPoolFileDownload,
+        IPCAddPoolUser, IPCReconnectPool,
     },
     poolpb::{PoolFileInfo, PoolFileSeeders, PoolMessage},
     sspb::PoolUserInfo,
@@ -27,7 +27,6 @@ const ADD_POOL_FILE_OFFERS_EVENT: &'static str = "add-pool-file-offers";
 const REMOVE_POOL_FILE_OFFER_EVENT: &'static str = "remove-pool-file-offer";
 const INIT_POOL_FILE_SEEDERS_EVENT: &'static str = "init-pool-file-seeders";
 
-const ADD_FILE_DOWNLOAD_EVENT: &'static str = "add-file-download-event";
 const COMPLETE_POOL_FILE_DOWNLOAD_EVENT: &'static str = "complete-pool-file-download";
 
 const INIT_POOL_MESSAGES_EVENT: &'static str = "init-pool-messages";
@@ -144,18 +143,6 @@ pub fn init_pool_file_seeders_event(pool_id: &String, file_seeders: Vec<PoolFile
             IPCInitPoolFileSeeders {
                 pool_id: pool_id.clone(),
                 file_seeders,
-            },
-        );
-    }
-}
-
-pub fn add_file_download_event(pool_id: &String, file_info: PoolFileInfo) {
-    if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
-        let _ = app_handle.emit_all(
-            ADD_FILE_DOWNLOAD_EVENT,
-            IPCAddPoolFileDownload {
-                pool_id: pool_id.clone(),
-                file_info,
             },
         );
     }

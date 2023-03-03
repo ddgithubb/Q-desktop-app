@@ -90,12 +90,6 @@ pub struct IPCInitPoolFileSeeders {
 }
 
 #[derive(Clone, Serialize)]
-pub struct IPCAddPoolFileDownload {
-    pub pool_id: String,
-    pub file_info: PoolFileInfo,
-}
-
-#[derive(Clone, Serialize)]
 pub struct IPCCompletePoolFileDownload {
     pub pool_id: String,
     pub file_id: String,

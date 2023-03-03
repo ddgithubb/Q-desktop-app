@@ -1,11 +1,10 @@
 import { invoke } from "@tauri-apps/api";
-import EventEmitter from "events";
 import { AddDownloadAction, ClearPoolAction, SetSavedPoolDataAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
 import { poolAction } from "../store/slices/pool.slice";
 import { store } from "../store/store";
 import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
 import { PoolFileInfo } from "../types/pool.v1";
-import { open, message } from '@tauri-apps/api/dialog';
+import { open } from '@tauri-apps/api/dialog';
 import { IPCSavedPoolData } from "./backend.model";
 
 export class BackendCommands {
@@ -56,7 +55,7 @@ export class BackendCommands {
         if (key == undefined) return;
 
         let filePath = await open({
-            multiple: true,
+            multiple: false, // Not supported for now
             directory: false,
             title: "Add File",
         });
@@ -68,9 +67,9 @@ export class BackendCommands {
         if (typeof filePath == 'string') {
             invoke('add_file_offer', { poolId, filePath });
         } else {
-            for (const path of filePath) {
-                invoke('add_file_offer', { poolId, filePath: path });
-            }
+            // for (const path of filePath) {
+            //     invoke('add_file_offer', { poolId, filePath: path });
+            // }
         }
     }
 
@@ -95,33 +94,12 @@ export class BackendCommands {
         invoke('add_image_offer', { poolId, filePath });
     }
 
-    async downloadFile(poolId: string, fileInfo: PoolFileInfo, isMedia: boolean = false): Promise<boolean> {
+    async downloadFile(poolId: string, fileInfo: PoolFileInfo, isTemp: boolean = false): Promise<boolean> {
         let key = this.getPoolKey(poolId);
         if (key == undefined) return false;
 
-        let pool = store.getState().pool.pools[key];
-        for (const download of pool.downloadQueue) {
-            if (download.fileInfo.fileId == fileInfo.fileId) {
-                message("Already downloading");
-                return false;
-            }
-        }
-
-        let isAvailable = false;
-        for (const file of pool.availableFiles) {
-            if (file.fileInfo?.fileId == fileInfo.fileId) {
-                isAvailable = true;
-                break;
-            }
-        }
-
-        if (!isAvailable) {
-            message("File not available");
-            return false;
-        };
-
         let dirPath = "";
-        if (!isMedia) {
+        if (!isTemp) {
             let path = await open({
                 multiple: false,
                 directory: true,
@@ -133,6 +111,12 @@ export class BackendCommands {
 
             dirPath = path;
         }
+
+        let addDownloadAction: AddDownloadAction = {
+            key,
+            fileInfo,
+        };
+        store.dispatch(poolAction.addDownload(addDownloadAction));
 
         await invoke('download_file', { poolId, fileInfo, dirPath });
         

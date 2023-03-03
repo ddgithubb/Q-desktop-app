@@ -1,13 +1,16 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc, fs::remove_dir_all};
+use std::{collections::HashMap, fs::remove_dir_all, path::PathBuf, sync::Arc};
 
 use log::info;
 use tokio::sync::RwLock as AsyncRwLock;
 
-use crate::{events::reconnect_pool_event, poolpb::PoolFileInfo};
+use crate::{
+    events::{complete_pool_file_download_event, reconnect_pool_event},
+    poolpb::PoolFileInfo,
+};
 
 use super::{
-    pool_conn::PoolConn, pool_net::PoolNet, pool_state::PoolState,
-    sync_server_client::SyncServerClient, cache_manager::CacheManager,
+    cache_manager::CacheManager, pool_conn::PoolConn, pool_net::PoolNet, pool_state::PoolState,
+    sync_server_client::SyncServerClient,
 };
 
 struct Pool {
@@ -24,9 +27,7 @@ impl Pool {
         let pool_net = PoolNet::init(pool_state.clone(), pool_conn.clone());
         let sync_server_client = SyncServerClient::init(pool_state.clone(), pool_conn.clone());
 
-        pool_conn
-            .pool_net_ref
-            .store(Some(pool_net.clone()));
+        pool_conn.pool_net_ref.store(Some(pool_net.clone()));
 
         Pool {
             pool_state,
@@ -127,8 +128,12 @@ impl PoolManager {
             } else {
                 Some(PathBuf::from(dir_path))
             };
-            
-            pool.pool_net.download_file(file_info, dir_path).await;
+
+            let file_id = file_info.file_id.clone();
+            let ok = pool.pool_net.download_file(file_info, dir_path).await;
+            if !ok {
+                complete_pool_file_download_event(pool_id, file_id, false);
+            }
         }
     }
 

@@ -10,7 +10,7 @@ use base64::Engine;
 use bytes::Bytes;
 use flume::Receiver;
 
-use image::{GenericImageView};
+use image::GenericImageView;
 use nanoid::nanoid;
 use parking_lot::Mutex;
 
@@ -19,7 +19,6 @@ use crate::{
         FILE_ID_LENGTH, MAX_SEND_CHUNK_BUFFER_LENGTH, MAX_TEMP_FILE_SIZE, MESSAGE_ID_LENGTH,
         PREVIEW_IMAGE_DIMENSION,
     },
-    events::complete_pool_file_download_event,
     poolpb::{
         pool_direct_message::{
             Data as PoolDirectMessageData, DirectType as PoolDirectMessageType, LatestReplyData,
@@ -33,7 +32,7 @@ use crate::{
         PoolMessage, PoolMessagePackage, PoolMessagePackageDestinationInfo,
         PoolMessagePackageSourceInfo,
     },
-    store::file_store::{FileStore, FilePathError},
+    store::file_store::FilePathError,
     MESSAGES_DB, STORE_MANAGER,
 };
 
@@ -219,8 +218,7 @@ impl PoolNet {
         let (image_data_tx, image_data_rx) = flume::bounded(0);
         let path_clone = path.clone();
         tokio::task::spawn_blocking(move || {
-            let image_data = Self::generate_image_data(path_clone);
-            let _ = image_data_tx.send(image_data);
+            let _ = image_data_tx.send(Self::generate_image_data(path_clone));
         });
 
         let image_data = match image_data_rx.recv_async().await {
@@ -255,41 +253,45 @@ impl PoolNet {
         self.file_manager.broadcast_file(file_id);
     }
 
-    pub(super) async fn download_file(&self, file_info: PoolFileInfo, dir_path: Option<PathBuf>) {
+    // Returns true if downloading
+    pub(super) async fn download_file(
+        &self,
+        file_info: PoolFileInfo,
+        dir_path: Option<PathBuf>,
+    ) -> bool {
         match STORE_MANAGER.file_path(&file_info.file_id) {
             Ok((existing_path, is_temp)) => {
-                if let Some(mut path) = dir_path {
-                    FileStore::create_valid_file_path(&mut path, &file_info.file_name);
-                    let success = tokio::fs::copy(existing_path, path.clone()).await.is_ok();
-    
-                    complete_pool_file_download_event(&self.pool_state.pool_id, file_info.file_id.clone(), success);
-    
-                    if is_temp && success {
-                        // Replace file offer
-                        self.send_retract_file_offer(file_info.file_id.clone()).await;
-                        self.send_file_offer(file_info, path).await;
-                    }
+                if let Some(dir_path) = dir_path {
+                    self.file_manager.download_file_by_copy(
+                        file_info,
+                        dir_path,
+                        existing_path,
+                        is_temp,
+                    );
+                    return true;
                 }
-                return;
-            },
+                return false;
+            }
             Err(FilePathError::NotExist) => {
-                self.send_retract_file_offer(file_info.file_id).await;
-                return;
-            },
+                self.send_retract_file_offer(file_info.file_id.clone())
+                    .await;
+            }
             _ => {}
         }
 
         if !self.pool_state.is_available_file(&file_info.file_id) {
-            return;
+            return false;
         }
 
         let file_id = file_info.file_id.clone();
         let full_chunk_range = create_full_chunk_range(file_info.total_size);
 
-        if let Ok(request_node_id) = self.file_manager.init_file_download(file_info, dir_path) {
+        if let Some(request_node_id) = self.file_manager.init_file_download(file_info, dir_path) {
             self.send_file_request(file_id, request_node_id, full_chunk_range, false)
                 .await;
         }
+
+        true
     }
 
     pub(super) async fn send_file_request(
@@ -426,7 +428,7 @@ impl PoolNet {
 
         self.pool_state.set_latest();
 
-        log::debug!("update_latest {:?}", latest_reply_data);
+        // log::debug!("update_latest {:?}", latest_reply_data);
 
         {
             let mut received_messages = self.received_messages.lock();

@@ -2,7 +2,7 @@ Start-Process powershell {npm run start; Read-Host} -NoNewWindow
 
 For ($i=0; $i -lt $Args[0]; $i++) {
     if ( $Args[2] -eq 1 ) {
-        Start-Process powershell {npm run desktopRelease; Read-Host} $nowindow
+        Start-Process powershell {npm run desktopRelease; Read-Host}
     } else {
         if ($Args[1] -eq 1) {
             Start-Process powershell {npm run desktopDev; Read-Host}
@@ -16,7 +16,7 @@ For ($i=0; $i -lt $Args[0]; $i++) {
 
 # For ($i=0; $i -lt $Args[0]; $i++) {
 #     if ( $Args[2] -eq 1 ) {
-#         Start-Process powershell {cargo run --release; Read-Host} $nowindow
+#         Start-Process powershell {cargo run --release; Read-Host}
 #     } else {
 #         if ($Args[1] -eq 1) {
 #             Start-Process powershell {cargo run; Read-Host}

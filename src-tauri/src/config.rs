@@ -1,6 +1,6 @@
-use std::{time::Duration};
+use std::time::Duration;
 
-use crate::{STORE_MANAGER};
+use crate::STORE_MANAGER;
 
 pub const PRODUCTION_MODE: bool = false;
 
@@ -20,7 +20,7 @@ pub const CACHE_CHUNK_TO_CHUNK_SIZE_FACTOR: usize = CACHE_CHUNK_SIZE / CHUNK_SIZ
 
 pub const CACHE_CHUNK_BUFFER_SIZE: usize = 16 * 1024 * 1024;
 pub const CACHE_CHUNK_BUFFER_AMOUNT: usize = CACHE_CHUNK_BUFFER_SIZE / CHUNK_SIZE;
-pub const CACHE_FILE_SIZE: usize = 512 * 1024 * 1024;
+pub const CACHE_FILE_SIZE: usize = 256 * 1024 * 1024;
 pub const MAX_CACHE_CHUNKS_AMOUNT: usize = CACHE_FILE_SIZE / CACHE_CHUNK_SIZE; 
 
 pub const MAX_TEMP_FILE_SIZE: u64 = 16 * 1024 * 1024;

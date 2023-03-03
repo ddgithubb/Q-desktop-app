@@ -153,8 +153,8 @@ function PoolDisplayViewComponent({ pool, messageMode }: PoolDisplayViewParams) 
             <div aria-hidden={messageMode != PoolMessageMode.AVAILABLE_FILES} className="display-toggle-hide display-component-container display-available-files">
                 {
                     pool.availableFiles.length ? 
-                        pool.availableFiles.map((file) => (
-                            <div className="display-available-file-offer" key={file.fileInfo!.fileId}>
+                        pool.availableFiles.map((file, index) => (
+                            <div className="display-available-file-offer" key={file.fileInfo!.fileId + index.toString()}>
                                 <span className="display-available-file-name" onClick={() => Backend.downloadFile(pool.poolID, file.fileInfo!)}>{file.fileInfo!.fileName}</span> 
                                 <span className="display-available-file-size">{fileSizeToString(file.fileInfo!.totalSize)}</span>
                                 <span className="display-available-file-seeders-count">{file.seederNodeIds.length} seeder{file.seederNodeIds.length > 1 ? "s" : ""}</span>

@@ -10,7 +10,6 @@ use std::{
     time::{Instant, SystemTime},
 };
 
-use anyhow::{anyhow, Result};
 use arc_swap::ArcSwapOption;
 use flume::{Receiver, Sender};
 use log::info;
@@ -21,7 +20,7 @@ use crate::{
         CHUNKS_MISSING_POLLING_INTERVAL, CHUNK_SIZE, MAX_CHUNKS_MISSING_RETRY,
         MAX_POLL_COUNT_BEFORE_SEND, MAX_TEMP_FILE_SIZE,
     },
-    events::{add_file_download_event, complete_pool_file_download_event},
+    events::complete_pool_file_download_event,
     pool::chunk::{chunk_ranges::create_full_chunk_range, chunk_util::total_size_to_total_chunks},
     poolpb::{pool_message::FileRequestData, PoolChunkMessage, PoolFileInfo},
     store::file_store::{FileStore, TempFile},
@@ -254,14 +253,41 @@ impl FileManager {
         None
     }
 
+    pub(super) fn download_file_by_copy(
+        self: &Arc<Self>,
+        file_info: PoolFileInfo,
+        dir_path: PathBuf,
+        from_path: PathBuf,
+        is_temp: bool,
+    ) {
+        let self_clone = self.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut to_path = dir_path;
+            FileStore::create_valid_file_path(&mut to_path, &file_info.file_name);
+            let success = std::fs::copy(from_path, to_path.clone()).is_ok();
+
+            complete_pool_file_download_event(
+                &self_clone.pool_state.pool_id,
+                file_info.file_id.clone(),
+                success,
+            );
+
+            if is_temp && success {
+                // Replace file offer
+                self_clone.retract_file_offer(file_info.file_id.clone());
+                self_clone.seed_file(file_info, to_path);
+            }
+        });
+    }
+
     // Returns Ok(requested_node_id) if new file download has been initialized
     pub(super) fn init_file_download(
         self: &Arc<Self>,
         file_info: PoolFileInfo,
         dir_path: Option<PathBuf>,
-    ) -> Result<String> {
+    ) -> Option<String> {
         if self.has_file_download(&file_info.file_id) {
-            return Err(anyhow!("has file download"));
+            return None;
         }
 
         let (path, is_temp) = match dir_path {
@@ -271,7 +297,7 @@ impl FileManager {
             }
             None => {
                 if file_info.total_size > MAX_TEMP_FILE_SIZE {
-                    return Err(anyhow!("temp file too big"));
+                    return None;
                 }
 
                 let path = match FileStore::temp_file_path(
@@ -279,7 +305,7 @@ impl FileManager {
                     file_info.file_id.clone(),
                 ) {
                     Some(path) => path,
-                    _ => return Err(anyhow!("cannot store temp files")),
+                    _ => return None,
                 };
 
                 (path, true)
@@ -294,7 +320,7 @@ impl FileManager {
 
         let file_handle = match file_handle {
             Some(file_handle) => file_handle,
-            _ => return Err(anyhow!("cannot store temp files")),
+            _ => return None,
         };
 
         let total_chunks = total_size_to_total_chunks(file_info.total_size);
@@ -302,7 +328,7 @@ impl FileManager {
         let cached_seeders: Vec<String> =
             match self.pool_state.sorted_file_seeders(&file_info.file_id) {
                 Some(seeders) => seeders,
-                None => return Err(anyhow!("no seeders")),
+                None => return None,
             };
         let requested_node_id = cached_seeders[0].clone();
 
@@ -333,8 +359,6 @@ impl FileManager {
 
         self.add_chunk_sender(file_info.clone(), path, false);
 
-        add_file_download_event(&self.pool_state.pool_id, file_info.clone());
-
         STATE_UPDATER
             .register_download_progress(file_info.file_id.clone(), file_download_progress.clone());
 
@@ -354,7 +378,7 @@ impl FileManager {
             );
         });
 
-        Ok(requested_node_id)
+        Some(requested_node_id)
     }
 
     fn chunk_sender_loop(self: Arc<Self>, file_id: String, mut broadcast: bool) {

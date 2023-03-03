@@ -1,10 +1,10 @@
 import { listen } from '@tauri-apps/api/event';
-import { AddDownloadAction, AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, InitMessageAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction } from '../store/slices/pool.action';
+import { AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, InitMessageAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction } from '../store/slices/pool.action';
 import { poolAction } from '../store/slices/pool.slice';
 import { profileAction, ProfileState } from '../store/slices/profile.slice';
 import { PoolStore, store } from '../store/store';
 import { PoolConnectionState } from '../types/pool.model';
-import { IPCAddPoolFileDownload, IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './backend.model';
+import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './backend.model';
 import { Backend } from './global';
 
 const STATE_UPDATE_EVENT: string = "state-update";
@@ -22,7 +22,6 @@ const ADD_POOL_FILE_OFFERS_EVENT: string = "add-pool-file-offers";
 const REMOVE_POOL_FILE_OFFER_EVENT: string = "remove-pool-file-offer";
 const INIT_POOL_FILE_SEEDERS_EVENT: string = "init-pool-file-seeders";
 
-const ADD_FILE_DOWNLOAD_EVENT: string = "add-file-download-event";
 const COMPLETE_POOL_FILE_DOWNLOAD_EVENT: string = "complete-pool-file-download";
 
 const INIT_POOL_MESSAGES_EVENT: string = "init-pool-messages";
@@ -151,18 +150,6 @@ listen(INIT_POOL_FILE_SEEDERS_EVENT, (event) => {
         fileSeeders: initFileSeeders.file_seeders,
     };
     store.dispatch(poolAction.initFileSeeders(InitFileSeedersAction));
-});
-
-listen(ADD_FILE_DOWNLOAD_EVENT, (event) => {
-    let addFileDownload: IPCAddPoolFileDownload = event.payload as any;
-    let key = Backend.getPoolKey(addFileDownload.pool_id);
-    if (key == undefined) return;
-
-    let addDownloadAction: AddDownloadAction = {
-        key,
-        fileInfo: addFileDownload.file_info,
-    };
-    store.dispatch(poolAction.addDownload(addDownloadAction));
 });
 
 listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {

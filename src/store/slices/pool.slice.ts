@@ -8,7 +8,8 @@ import { PoolInfo, SSMessage_InitPoolData } from "../../types/sync_server.v1";
 import { PoolStore, store } from "../store";
 import { PoolsState, PoolAction, UpdateConnectionStateAction, AddUserAction, RemoveUserAction, InitMessageAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction, SetSavedPoolDataAction, SetPoolsAction } from "./pool.action";
 
-const MAX_FEED_SIZE = 50;
+const MAX_FEED_SIZE = 1000;
+// const MAX_FEED_SIZE = 50;
 
 const initialState: PoolsState = {
     pools: [],
@@ -275,7 +276,7 @@ const poolSlice = createSlice({
             for (let i = 0; i < pool.downloadQueue.length; i++) {
                 if (pool.downloadQueue[i].fileInfo!.fileId == action.payload.fileID) {
                     pool.downloadQueue[i].status = action.payload.status;
-                    return;
+                    break;
                 }
             }
         },
@@ -284,20 +285,20 @@ const poolSlice = createSlice({
             for (let i = 0; i < pool.downloadQueue.length; i++) {
                 if (pool.downloadQueue[i].fileInfo!.fileId == action.payload.fileID) {
                     pool.downloadQueue[i].status = action.payload.success ? DownloadProgressStatus.SUCCESS : DownloadProgressStatus.FAILURE;
-                    PoolStore.completedDownloadEvents.emit(action.payload.fileID, action.payload.success);
-                    return;
+                    break;
                 }
             }
+            PoolStore.completedDownloadEvents.emit(action.payload.fileID, action.payload.success);
         },
         removeDownload(state: PoolsState, action: PayloadAction<RemoveDownloadAction>) {
             let pool = getPool(state, action);
             for (let i = 0; i < pool.downloadQueue.length; i++) {
                 if (pool.downloadQueue[i].fileInfo!.fileId == action.payload.fileID) {
                     pool.downloadQueue.splice(i, 1);
-                    PoolStore.removeDownloadProgress(action.payload.fileID);
-                    return;
+                    break;
                 }
             }
+            PoolStore.removeDownloadProgress(action.payload.fileID);
         }
     }
 });

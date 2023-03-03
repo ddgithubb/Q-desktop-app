@@ -55,11 +55,6 @@ export interface IPCRemovePoolUser {
     user_id: string,
 }
 
-export interface IPCAddPoolFileDownload {
-    pool_id: string,
-    file_info: PoolFileInfo,
-}
-
 export interface IPCAddPoolFileOffers {
     pool_id: string,
     node_id: string,

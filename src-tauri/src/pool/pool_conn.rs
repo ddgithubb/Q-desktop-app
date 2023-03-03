@@ -710,20 +710,22 @@ impl PoolConn {
     ) -> OnOpenHdlrFn {
         Box::new(move || {
             Box::pin(async move {
-                let mut init_buffer = chunks_buffer.init_buffer.lock().await;
-                if let Some(mut init_buffer) = init_buffer.take() {
-                    loop {
-                        if let Some(chunk) = init_buffer.buffer.pop_front() {
-                            let _ = chunks_dc.send(&chunk).await;
-                            continue;
+                tokio::spawn(async move {
+                    let mut init_buffer = chunks_buffer.init_buffer.lock().await;
+                    if let Some(mut init_buffer) = init_buffer.take() {
+                        loop {
+                            if let Some(chunk) = init_buffer.buffer.pop_front() {
+                                let _ = chunks_dc.send(&chunk).await;
+                                continue;
+                            }
+                            break;
                         }
-                        break;
                     }
-                }
-                chunks_buffer
-                    .last_max_buffer_time
-                    .store(0, Ordering::SeqCst); // to prevent inaccurate diff measures
-                let _ = chunks_buffer.signal_chunks_send_tx.send(());
+                    chunks_buffer
+                        .last_max_buffer_time
+                        .store(0, Ordering::SeqCst); // to prevent inaccurate diff measures
+                    let _ = chunks_buffer.signal_chunks_send_tx.send(());
+                });
             })
         })
     }
