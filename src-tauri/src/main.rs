@@ -13,7 +13,7 @@ use app::{
         connect_to_pool, disconnect_from_pool, download_file, remove_file_download,
         retract_file_offer, add_file_offer, add_image_offer, send_text_message,
     },
-    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE, store::file_store::FileStore,
+    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE, store::file_store::FileStore, sspb::{PoolUserInfo, PoolDeviceInfo, DeviceType}, ipc::IPCInitProfile, events::init_profile_event,
 };
 use log::info;
 use tauri::{Manager, WindowEvent};
@@ -35,6 +35,7 @@ async fn main() {
 
             tokio::spawn(async move {
                 init_app().await;
+                init_app_tests().await;
                 main_window.show().unwrap();
             });
 
@@ -68,6 +69,31 @@ async fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+async fn init_app_tests() {
+    let id = nanoid::nanoid!(21);
+    log::info!("Generated ID: {}", id);
+
+    let user_info = PoolUserInfo {
+        user_id: id.clone(),
+        display_name: "Test".into(),
+        devices: vec![PoolDeviceInfo {
+            device_id: id,
+            device_type: DeviceType::Desktop.into(),
+            device_name: "Test Device".into(),
+        }],
+    };
+    
+    STORE_MANAGER.new_profile(
+        user_info.clone(),
+        user_info.devices[0].clone(),
+    );
+
+    init_profile_event(IPCInitProfile {
+        device: user_info.devices[0].clone(),
+        user_info: user_info,
+    });
 }
 
 async fn init_app() {

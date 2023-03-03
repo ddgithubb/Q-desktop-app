@@ -43,16 +43,6 @@ impl StoreManager {
         }
     }
 
-    // pub fn app_data_dir() -> Option<PathBuf> {
-    //     match data_dir() {
-    //         Some(mut path) => {
-    //             path.push(APP_DATA_NAME);
-    //             Some(path)
-    //         }
-    //         None => return None,
-    //     }
-    // }
-
     fn create_app_data_dir() -> bool {
         if let Some(path) = Self::app_data_dir() {
             let _ = create_dir(path.clone());

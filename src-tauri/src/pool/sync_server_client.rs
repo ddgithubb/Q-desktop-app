@@ -76,26 +76,26 @@ impl SyncServerClient {
         };
 
         // TEMP
-        let _temp_my_user_info = pool_info.users[0].clone();
-        STORE_MANAGER.new_profile(
-            _temp_my_user_info.clone(),
-            _temp_my_user_info.devices[0].clone(),
-        );
+        // let _temp_my_user_info = pool_info.users[0].clone();
+        // STORE_MANAGER.new_profile(
+        //     _temp_my_user_info.clone(),
+        //     _temp_my_user_info.devices[0].clone(),
+        // );
 
-        unsafe {
-            let pool_state_const = &*self.pool_state as *const PoolState;
-            let pool_state_ptr = pool_state_const as *mut PoolState;
-            (*pool_state_ptr).user = STORE_MANAGER.user_info();
-            (*pool_state_ptr).node_id = STORE_MANAGER.user_info().device.device_id;
-        }
+        // unsafe {
+        //     let pool_state_const = &*self.pool_state as *const PoolState;
+        //     let pool_state_ptr = pool_state_const as *mut PoolState;
+        //     (*pool_state_ptr).user = STORE_MANAGER.user_info();
+        //     (*pool_state_ptr).node_id = STORE_MANAGER.user_info().device.device_id;
+        // }
 
         log::info!("nodeID: {}", self.pool_state.node_id);
         log::info!("userID: {}", self.pool_state.user.user_id);
 
-        init_profile_event(IPCInitProfile {
-            device: _temp_my_user_info.devices[0].clone(),
-            user_info: _temp_my_user_info,
-        });
+        // init_profile_event(IPCInitProfile {
+        //     device: _temp_my_user_info.devices[0].clone(),
+        //     user_info: _temp_my_user_info,
+        // });
 
         // TEMP
 

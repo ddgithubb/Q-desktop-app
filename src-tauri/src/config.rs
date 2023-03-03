@@ -71,10 +71,11 @@ fn sync_server_api_host(path: String) -> String {
 }
 
 pub fn sync_server_connect_endpoint(pool_id: &str) -> String {
-    sync_server_ws_host(format!("/ss/{}/connect?poolid={}&displayname={}",
+    sync_server_ws_host(format!("/ss/{}/connect?poolid={}&displayname={}&userid={}",
         SYNC_SERVER_VERSION,
         pool_id,
         STORE_MANAGER._display_name(),
+        STORE_MANAGER._user_id(),
     ))
 }
 

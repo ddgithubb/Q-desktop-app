@@ -6,18 +6,18 @@ use crate::sspb::{PoolDeviceInfo, PoolInfo, PoolUserInfo};
 
 use super::store_manager::StoreManager;
 
+pub struct BasicUserInfo {
+    pub user_id: String,
+    pub display_name: String,
+    pub device: PoolDeviceInfo,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserStore {
     pub(super) user_info: PoolUserInfo,
     pub(super) device: PoolDeviceInfo,
     pub(super) pools: HashMap<String, PoolInfo>, // pool_id -> pool_info
-}
-
-pub struct BasicUserInfo {
-    pub user_id: String,
-    pub display_name: String,
-    pub device: PoolDeviceInfo,
 }
 
 impl StoreManager {
@@ -79,5 +79,10 @@ impl StoreManager {
     pub fn _display_name(&self) -> String {
         let user_store = self.user_store.lock();
         user_store.user_info.display_name.clone()
+    }
+
+    pub fn _user_id(&self) -> String {
+        let user_store = self.user_store.lock();
+        user_store.user_info.user_id.clone()
     }
 }
