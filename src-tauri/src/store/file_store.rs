@@ -2,14 +2,19 @@ use std::{
     collections::{HashMap, VecDeque},
     fs::{create_dir, read_dir},
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{SystemTime, UNIX_EPOCH}, io::Read,
 };
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, http::ResponseBuilder};
+use tauri::http::{
+    Request as HttpRequest,
+    Response as HttpResponse,
+};
 
 use crate::{
     config::{FILE_ID_LENGTH, MAX_TEMP_FILES_SIZE_PER_POOL, MAX_TEMP_FILE_SIZE},
-    poolpb::PoolFileInfo,
+    poolpb::PoolFileInfo, STORE_MANAGER, POOL_MANAGER,
 };
 
 use super::store_manager::StoreManager;
@@ -24,6 +29,13 @@ pub struct TempFile {
 pub struct TempFileQueue {
     size: u64,
     queue: VecDeque<TempFile>,
+}
+
+#[derive(PartialEq)]
+pub enum FilePathError {
+    NoRecord,
+    NotExist,
+    OtherError,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -112,15 +124,27 @@ impl StoreManager {
         false
     }
 
-    pub fn check_file_exists(&self, file_id: &String) -> Option<PathBuf> {
+    pub fn file_path(&self, file_id: &String) -> Result<(PathBuf, bool), FilePathError> {
         let file_store = self.file_store.lock();
         if let Some(file_path) = file_store.file_paths.get(file_id) {
             let path = PathBuf::from(file_path.normalized_path.clone());
             if path.exists() {
-                return Some(path);
+                // Quick attempt to figure out if it's a temp file
+                let is_temp = match path.file_name() {
+                    Some(file_name) => {
+                        match file_name.to_str() {
+                            Some(file_name) => file_name == file_id,
+                            None => return Err(FilePathError::OtherError),
+                        }
+                    },
+                    None => return Err(FilePathError::OtherError),
+                };
+
+                return Ok((path, is_temp));
             }
+            return Err(FilePathError::NotExist)
         }
-        None
+        Err(FilePathError::NoRecord)
     }
 
     pub fn add_temp_file(&self, pool_id: &String, temp_file: TempFile) -> Option<Vec<TempFile>> {
@@ -261,6 +285,45 @@ impl FileStore {
             });
         }
         self.file_paths = file_paths;
+    }
+
+    pub fn register_media_protocol(_app: &AppHandle, req: &HttpRequest) -> Result<HttpResponse, Box<dyn std::error::Error>> {
+        let response = ResponseBuilder::new();
+        let path = req.uri().strip_prefix("media://localhost/").unwrap();
+        let path: Vec<&str> = path.split("%2F").collect();
+        let pool_id = path[0].to_string();
+        let file_id = path[1].to_string();
+
+        let file_path = match STORE_MANAGER.file_path(&file_id) {
+            Ok((file_path, _)) => file_path,
+            Err(err) => {
+                if err == FilePathError::NotExist {
+                    let pool_id = pool_id.clone();
+                    let file_id = file_id.clone();
+                    tokio::spawn(async move {
+                        POOL_MANAGER.retract_file_offer(&pool_id, file_id).await;
+                    });
+                }
+
+                match Self::temp_file_path(pool_id, file_id) {
+                    Some(path) => path,
+                    _ => return response.mimetype("text/plain").status(404).body(Vec::new()),
+                }
+            },
+        };
+
+        let mut file = match std::fs::File::open(file_path) {
+            Ok(file) => file,
+            Err(_) => return response.mimetype("text/plain").status(404).body(Vec::new()),
+        };
+
+        let mut buf = Vec::new();
+        match file.read_to_end(&mut buf) {
+            Ok(_) => {},
+            _ => return response.mimetype("text/plain").status(404).body(Vec::new()),
+        }
+
+        response.body(buf)
     }
 
     pub fn normalize_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {

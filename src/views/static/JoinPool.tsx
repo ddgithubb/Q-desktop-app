@@ -11,10 +11,6 @@ export function JoinPool() {
     let [poolID, setPoolID] = useState<string>(searchParams.get("poolid") || DEFAULT_TEST_POOL_NAME);
     let [displayName, setDisplayName] = useState<string>("");
 
-    useEffect(() => {
-        navigate('/pool/' + poolID + "?displayName=TEST");
-    }, []);
-
     const goToPool = () => {
         if (displayName == "") return;
         navigate('/pool/' + poolID + "?displayName=" + displayName);

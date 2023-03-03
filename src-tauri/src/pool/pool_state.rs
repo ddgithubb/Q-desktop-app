@@ -133,9 +133,9 @@ impl PoolState {
         return false;
     }
 
-    pub(super) fn set_node_position(&self, node_position: PoolNodePosition) {
+    pub(super) fn set_node_position(&self, node_position: PoolNodePosition) -> bool {
+        let mut only_node = true;
         if node_position.center_cluster {
-            let mut only_node = true;
             'outer_loop: for panel in &node_position.parent_cluster_node_ids {
                 for node_id in panel {
                     if let Some(node_id) = node_id {
@@ -153,7 +153,8 @@ impl PoolState {
             }
         }
 
-        self.node_position.store(Arc::new(node_position))
+        self.node_position.store(Arc::new(node_position));
+        only_node
     }
 
     pub(super) fn node_position_path(&self) -> Vec<u32> {

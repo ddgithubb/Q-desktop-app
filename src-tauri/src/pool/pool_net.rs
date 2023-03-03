@@ -33,7 +33,7 @@ use crate::{
         PoolMessage, PoolMessagePackage, PoolMessagePackageDestinationInfo,
         PoolMessagePackageSourceInfo,
     },
-    store::file_store::FileStore,
+    store::file_store::{FileStore, FilePathError},
     MESSAGES_DB, STORE_MANAGER,
 };
 
@@ -159,6 +159,8 @@ impl PoolNet {
             }
         };
 
+        log::debug!("send_missed_messages {}", missed_messages.len());
+
         for msg in missed_messages {
             self.pool_conn.distribute_message(msg).await;
         }
@@ -254,17 +256,27 @@ impl PoolNet {
     }
 
     pub(super) async fn download_file(&self, file_info: PoolFileInfo, dir_path: Option<PathBuf>) {
-        if let Some(existing_path) = STORE_MANAGER.check_file_exists(&file_info.file_id) {
-            if let Some(mut dir_path) = dir_path {
-                let pool_id = self.pool_state.pool_id.clone();
-                tokio::spawn(async move {
-                    FileStore::create_valid_file_path(&mut dir_path, &file_info.file_name);
-                    let success = tokio::fs::copy(existing_path, dir_path).await.is_ok();
-
-                    complete_pool_file_download_event(&pool_id, file_info.file_id, success);
-                });
-            }
-            return;
+        match STORE_MANAGER.file_path(&file_info.file_id) {
+            Ok((existing_path, is_temp)) => {
+                if let Some(mut path) = dir_path {
+                    FileStore::create_valid_file_path(&mut path, &file_info.file_name);
+                    let success = tokio::fs::copy(existing_path, path.clone()).await.is_ok();
+    
+                    complete_pool_file_download_event(&self.pool_state.pool_id, file_info.file_id.clone(), success);
+    
+                    if is_temp && success {
+                        // Replace file offer
+                        self.send_retract_file_offer(file_info.file_id.clone()).await;
+                        self.send_file_offer(file_info, path).await;
+                    }
+                }
+                return;
+            },
+            Err(FilePathError::NotExist) => {
+                self.send_retract_file_offer(file_info.file_id).await;
+                return;
+            },
+            _ => {}
         }
 
         if !self.pool_state.is_available_file(&file_info.file_id) {

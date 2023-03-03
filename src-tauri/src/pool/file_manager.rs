@@ -338,7 +338,10 @@ impl FileManager {
         STATE_UPDATER
             .register_download_progress(file_info.file_id.clone(), file_download_progress.clone());
 
-        info!("Downloading file {} requesting {}", file_info.file_id, requested_node_id);
+        info!(
+            "Downloading file {} requesting {}",
+            file_info.file_id, requested_node_id
+        );
 
         let file_manager_clone = self.clone();
         tokio::task::spawn_blocking(move || {

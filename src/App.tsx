@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
-import { BrowserRouter, Route, Routes } from "react-router-dom"
+import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom"
 import { PoolContainerView } from './views/pool/PoolView'
 import { Pools } from './views/pool/Pools'
 import { JoinPool } from './views/static/JoinPool'
@@ -22,7 +22,7 @@ function App() {
     gateOpen ? (
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={ <JoinPool /> } />
+          <Route path="/" element={ <Pools /> } />
           <Route path="/join-pool" element={ <JoinPool /> }/> 
           <Route path="/pool" element={ <Pools /> } />
           <Route path="/pool/:poolID" element={ <PoolContainerView /> } />

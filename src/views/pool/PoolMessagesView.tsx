@@ -273,7 +273,6 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
     }, []);
 
     useEffect(() => {
-        if (!requesting) return;
         let callback = (success: boolean) => {
             console.log("file complete success: ", success);
             updateSrc();
@@ -283,7 +282,7 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
         return () => {
             PoolStore.completedDownloadEvents.removeListener(fileInfo.fileId, callback);
         }
-    }, [requesting]);
+    }, [src]);
 
     const hasMedia = (): boolean => {
         return src != "";
@@ -315,11 +314,7 @@ const AsyncImage = memo(({ poolID, fileInfo, imageData }: { poolID: string, file
                 <img
                     className={"pool-message-image" + (!hasMedia() ? " pool-message-image-preview-blur" : "")}
                     src={src == "" ? imageData.previewImageBase64 : src}
-                    onError={() => {
-                        // Error means that file exists but is not done downloading
-                        setSrc("");
-                        setRequesting(true);
-                    }}
+                    onError={() => setSrc("")}
                     height={Math.min(400, (imageData.height / imageData.width) * Math.min(400, imageData.width, window.innerWidth - 80))} />
                 {
                     !hasMedia() ? (

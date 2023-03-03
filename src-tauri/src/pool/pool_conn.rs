@@ -114,7 +114,7 @@ impl PoolConn {
         self.is_fully_connected.load(Ordering::Relaxed)
     }
 
-    fn update_is_fully_connected(&self) {
+    pub(super) fn update_is_fully_connected(&self) {
         let node_connections = self.node_connections.read();
         for (_, c) in node_connections.iter() {
             if c.main_data_channel.ready_state() == RTCDataChannelState::Connecting {

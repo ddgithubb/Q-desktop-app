@@ -14,16 +14,6 @@
       "dialog": {
         "open": true,
         "message": true
-      },
-      "protocol": {
-        "asset": true,
-        "assetScope": [
-          "**",
-          "$APPDATA/**"
-        ]
-      },
-      "path": {
-        "all": true
       }
     },
     "bundle": {
@@ -60,7 +50,7 @@
       }
     },
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: asset: https://asset.localhost"
+      "csp": "default-src 'self'; img-src 'self' media: https://media.localhost data:"
     },
     "updater": {
       "active": false

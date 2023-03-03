@@ -8,7 +8,7 @@ export function Pools() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        navigate("/pool/" + DEFAULT_TEST_POOL_NAME);
+        navigate("/pool/main?displayName=TEST");
     }, [])
 
     return (

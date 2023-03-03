@@ -13,7 +13,7 @@ use app::{
         connect_to_pool, disconnect_from_pool, download_file, remove_file_download,
         retract_file_offer, add_file_offer, add_image_offer, send_text_message,
     },
-    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE,
+    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE, store::file_store::FileStore,
 };
 use log::info;
 use tauri::{Manager, WindowEvent};
@@ -42,6 +42,7 @@ async fn main() {
 
             Ok(())
         })
+        .register_uri_scheme_protocol("media", FileStore::register_media_protocol)
         .on_window_event(|event| {
             match event.event() {
                 WindowEvent::Destroyed => {

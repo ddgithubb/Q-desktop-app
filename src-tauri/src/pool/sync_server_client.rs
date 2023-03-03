@@ -248,11 +248,15 @@ impl SyncServerClient {
                         ss_msg.data
                     {
                         log::info!("New Node Position: {:?}", update_node_position_data);
-                        self.pool_state.set_node_position(
+                        let only_node = self.pool_state.set_node_position(
                             PoolNodePosition::from_update_node_position_data(
                                 update_node_position_data,
                             ),
                         );
+
+                        if only_node {
+                            self.pool_conn.update_is_fully_connected()
+                        }
                     }
                 }
                 SSMessageOp::ConnectNode => {

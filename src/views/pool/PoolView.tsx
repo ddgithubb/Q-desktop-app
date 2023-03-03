@@ -95,7 +95,7 @@ export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number 
     useEffect(() => {
         if (messageMode == PoolMessageMode.DISCONNECT) {
             Backend.disconnectFromPool(poolID);
-            navigate('/');
+            navigate('/join-pool');
         }
     }, [messageMode]);
 
