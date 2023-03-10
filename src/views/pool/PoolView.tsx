@@ -102,7 +102,7 @@ export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number 
     return (
         <div className="pool-view">
             {/* TODO: add fixed siaply of pool name along with # of active devices, # of active users, and # of users in general */}
-            <PoolMessagesView poolID={poolID} feed={pool?.feed || []} />
+            <PoolMessagesView poolID={poolID} poolKey={pool?.key || 0} feed={pool?.feed || []} historyFeed={pool?.historyFeed} />
             {
                 pool ? (
                     <PoolDisplayView pool={pool} messageMode={messageMode} />

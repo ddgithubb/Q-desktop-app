@@ -1,1 +1,0 @@
-// idea is that we can easily transfer setting data to other devices if needed

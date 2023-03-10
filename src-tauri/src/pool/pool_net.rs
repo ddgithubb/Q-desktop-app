@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     io::Cursor,
     mem,
     path::PathBuf,
@@ -16,9 +17,10 @@ use parking_lot::Mutex;
 
 use crate::{
     config::{
-        FILE_ID_LENGTH, MAX_SEND_CHUNK_BUFFER_LENGTH, MAX_TEMP_FILE_SIZE, MESSAGE_ID_LENGTH,
-        PREVIEW_IMAGE_DIMENSION,
+        FILE_ID_LENGTH, LATEST_MESSAGES_SIZE, MAX_SEND_CHUNK_BUFFER_LENGTH, MAX_TEMP_FILE_SIZE,
+        MESSAGE_ID_LENGTH, PREVIEW_IMAGE_DIMENSION,
     },
+    events::{append_pool_message_event, latest_pool_messages_event},
     poolpb::{
         pool_direct_message::{
             Data as PoolDirectMessageData, DirectType as PoolDirectMessageType, LatestReplyData,
@@ -85,6 +87,7 @@ pub(super) struct PoolNet {
 
     missed_messages: Mutex<Vec<MessagePackageBundle>>,
     received_messages: Mutex<ReceivedMessageQueue>,
+    latest_messages: Mutex<VecDeque<PoolMessage>>,
 }
 
 impl PoolNet {
@@ -102,6 +105,7 @@ impl PoolNet {
             cache_manager,
             missed_messages: Mutex::new(Vec::new()),
             received_messages: Mutex::new(ReceivedMessageQueue::new()),
+            latest_messages: Mutex::new(VecDeque::new()),
         });
 
         let pool_net_clone = pool_net.clone();
@@ -130,9 +134,12 @@ impl PoolNet {
     }
 
     pub(super) async fn send_latest_reply(&self, target_node_id: &String) {
-        let latest_reply_data = LatestReplyData {
-            latest_messages: MESSAGES_DB.latest_messages(&self.pool_state.pool_id),
-            file_seeders: self.pool_state.collect_file_seeders(),
+        let latest_reply_data = {
+            let latest_messages = self.latest_messages.lock();
+            LatestReplyData {
+                latest_messages: latest_messages.iter().cloned().collect(),
+                file_seeders: self.pool_state.collect_file_seeders(),
+            }
         };
 
         self.send_direct_message(
@@ -232,9 +239,8 @@ impl PoolNet {
         }
 
         self.file_manager
-            .add_chunk_sender(file_offer.clone(), path, true);
-
-        let file_id = file_offer.file_id.clone();
+            .add_chunk_sender(file_offer.clone(), path, false);
+        //     .add_chunk_sender(file_offer.clone(), path, true);
 
         let media_offer_data = MediaOfferData {
             file_info: Some(file_offer),
@@ -250,7 +256,7 @@ impl PoolNet {
         )
         .await;
 
-        self.file_manager.broadcast_file(file_id);
+        // self.file_manager.broadcast_file(file_id);
     }
 
     // Returns true if downloading
@@ -405,7 +411,9 @@ impl PoolNet {
     }
 
     fn add_message(&self, msg: PoolMessage) {
-        MESSAGES_DB.add_message(&self.pool_state.pool_id, msg);
+        self.add_latest_message(msg.clone());
+        MESSAGES_DB.append_message(&self.pool_state.pool_id, msg.clone());
+        append_pool_message_event(&self.pool_state.pool_id, msg);
     }
 
     fn add_missed_message(&self, msg_pkg_bundle: &MessagePackageBundle) {
@@ -415,9 +423,30 @@ impl PoolNet {
         }
     }
 
+    fn add_latest_message(&self, msg: PoolMessage) {
+        let mut latest_messages = self.latest_messages.lock();
+        latest_messages.push_back(msg);
+
+        if latest_messages.len() > LATEST_MESSAGES_SIZE {
+            latest_messages.pop_front();
+        }
+    }
+
+    fn set_latest_messages(&self, msgs: &Vec<PoolMessage>) {
+        let mut latest_messages = self.latest_messages.lock();
+        *latest_messages = msgs.iter().cloned().collect();
+    }
+
     fn validate_received_messages(&self, msg_pkg_bundle: &MessagePackageBundle) -> bool {
         let mut received_messages = self.received_messages.lock();
         received_messages.append_message(&msg_pkg_bundle.msg_pkg.msg.as_ref().unwrap().msg_id)
+    }
+
+    fn add_received_messages(&self, msgs: &Vec<PoolMessage>) {
+        let mut received_messages = self.received_messages.lock();
+        for msg in msgs {
+            received_messages.append_message(&msg.msg_id);
+        }
     }
 
     fn update_latest(&self, latest_reply_data: LatestReplyData) {
@@ -426,22 +455,19 @@ impl PoolNet {
             return;
         }
 
-        self.pool_state.set_latest();
-
         // log::debug!("update_latest {:?}", latest_reply_data);
 
-        {
-            let mut received_messages = self.received_messages.lock();
-            for msg in &latest_reply_data.latest_messages {
-                received_messages.append_message(&msg.msg_id);
-            }
-        }
+        self.add_received_messages(&latest_reply_data.latest_messages);
+        self.set_latest_messages(&latest_reply_data.latest_messages);
 
         MESSAGES_DB
-            .init_latest_messages(&self.pool_state.pool_id, latest_reply_data.latest_messages);
+            .add_latest_messages(&self.pool_state.pool_id, latest_reply_data.latest_messages);
 
+        self.pool_state.set_latest(); // Helps preserve message order
         self.pool_state
             .init_file_seeders(latest_reply_data.file_seeders);
+
+        latest_pool_messages_event(&self.pool_state.pool_id);
     }
 
     fn update_node_info(&self, target_node_id: &String, node_info_data: NodeInfoData) {
@@ -576,6 +602,11 @@ impl PoolNet {
 
     pub(super) async fn handle_message(&self, mut msg_pkg_bundle: MessagePackageBundle) {
         // log::debug!("UNPROCESSED handle_message {:?}", msg_pkg_bundle.msg_pkg);
+
+        // To keep order
+        if !self.pool_state.is_latest() {
+            return;
+        }
 
         if !self.validate_received_messages(&msg_pkg_bundle) {
             return;
@@ -800,10 +831,7 @@ impl PoolNet {
     }
 
     fn generate_image_data(path: PathBuf) -> anyhow::Result<PoolImageData> {
-        let image = match image::open(path) {
-            Ok(image) => image,
-            _ => return Err(anyhow::anyhow!("cannot open image")),
-        };
+        let image = image::open(path)?;
 
         let (width, height) = image.dimensions();
 
@@ -816,13 +844,10 @@ impl PoolNet {
         let image = image.resize(new_width, new_height, image::imageops::FilterType::Nearest);
 
         let mut preview_img_buf = Vec::new();
-        match image.write_to(
+        image.write_to(
             &mut Cursor::new(&mut preview_img_buf),
             image::ImageOutputFormat::Png,
-        ) {
-            Ok(_) => {}
-            _ => return Err(anyhow::anyhow!("cannot open cannot write image")),
-        };
+        )?;
 
         let preview_image_base64 = format!(
             "data:image/png;base64,{}",

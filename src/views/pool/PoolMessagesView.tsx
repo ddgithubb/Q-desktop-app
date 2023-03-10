@@ -6,127 +6,98 @@ import { formatDate, formatTime, minutesToMillisecond } from '../../utils/time';
 import './PoolMessagesView.css';
 
 import DownloadIcon from '../../assets/download.png';
+import ArrowIcon from '../../assets/arrow.png';
 import FileIcon from '../../assets/file.png';
 import { PoolMessage, PoolFileInfo, PoolMessage_Type, PoolMediaType, PoolImageData, PoolMessage_MediaOfferData } from '../../types/pool.v1';
-import { FeedMessage, NodeStatus, PoolFileDownload, PoolNodeStatus, PoolUserStatus, UserStatus } from '../../types/pool.model';
+import { FeedMessage, HistoryFeed, NodeStatus, PoolFileDownload, PoolNodeStatus, PoolUserStatus, UserStatus } from '../../types/pool.model';
 import { Backend, getTempAssetURL } from '../../backend/global';
-import { PoolStore } from '../../store/store';
-
-// TESTING
-// const MIN_MESSAGE_HEIGHT: number = 50;
-// const MESSAGES_VIEWPORT: number = 1;
-// const EXTRA_MESSAGES_VIEWPORT: number = 1;
-// TESTING
+import { PoolStore, store } from '../../store/store';
+import { motion } from 'framer-motion';
+import { poolAction } from '../../store/slices/pool.slice';
 
 const CONSISTENT_MESSAGE_INTERVAL: number = minutesToMillisecond(5);
-const MIN_MESSAGE_HEIGHT: number = 28;
-const MESSAGES_VIEWPORT: number = 2;
-const EXTRA_MESSAGES_VIEWPORT: number = 1;
-var SCROLL_THRESHOLD_FOR_CONTENT: number;
-var MESSAGES_PER_VIEWPORT: number;
-var MAIN_MESSAGES_TO_RENDER: number;
-var MAX_MESSAGES_TO_RENDER: number;
-var EXTRA_MESSAGES_TO_RENDER: number;
-
-const calcMessageBounds = () => {
-    MESSAGES_PER_VIEWPORT = window.innerHeight / MIN_MESSAGE_HEIGHT;
-    SCROLL_THRESHOLD_FOR_CONTENT = window.innerHeight / 2;
-    MAIN_MESSAGES_TO_RENDER = MESSAGES_VIEWPORT * MESSAGES_PER_VIEWPORT
-    EXTRA_MESSAGES_TO_RENDER = EXTRA_MESSAGES_VIEWPORT * MESSAGES_PER_VIEWPORT
-    MAX_MESSAGES_TO_RENDER = 2 * EXTRA_MESSAGES_TO_RENDER + MAIN_MESSAGES_TO_RENDER;
-    // console.log(MESSAGES_PER_VIEWPORT, MAIN_MESSAGES_TO_RENDER, EXTRA_MESSAGES_TO_RENDER, MAX_MESSAGES_TO_RENDER);
-};
-
-calcMessageBounds();
-window.addEventListener("resize", calcMessageBounds);
 
 export interface PoolMessagesViewParams {
     poolID: string;
+    poolKey: number;
     feed: FeedMessage[];
+    historyFeed?: HistoryFeed;
 }
 
 export const PoolMessagesView = memo(PoolMessagesViewComponent);
 
-function PoolMessagesViewComponent({ poolID, feed }: PoolMessagesViewParams) {
+function PoolMessagesViewComponent({ poolID, poolKey, feed, historyFeed }: PoolMessagesViewParams) {
 
     const [messagesElement, setMessagesElement] = useState<HTMLDivElement | null>(null);
     const [atNewestMessage, setAtNewestMessage] = useState<boolean>(true);
-    const lastFirstMessageElement = useRef<Element | null>();
-    const lastFirstMessageScrollTop = useRef<number>(0);
-    const lastLastMessageElement = useRef<Element | null>();
-    const lastLastMessageScrollTop = useRef<number>(0);
 
-    const [messageIndexThreshold, setMessageIndexThreshold] = useState<number>(MAIN_MESSAGES_TO_RENDER);
     const atTopThreshold = useRef<boolean>(false);
     const atBottomThreshold = useRef<boolean>(false);
-    const poolMessagesView = useMemo(() => {
-        //console.log(messages.length, messageIndexThreshold, Math.max(0, messages.length - messageIndexThreshold), messages.length - messageIndexThreshold + MAX_MESSAGES_TO_RENDER);
-        return feed.slice(Math.max(0, feed.length - messageIndexThreshold), feed.length - messageIndexThreshold + MAX_MESSAGES_TO_RENDER);
-    }, [feed, messageIndexThreshold]);
+    const [ hasMoreTop, setHasMoreTop ] = useState<boolean>(false);
+    const [ hasMoreBottom, setHasMoreBottom ] = useState<boolean>(false);
+
+    const feedView = useMemo(() => {
+        // console.log("Feed View:", historyFeed, feed);
+        if (historyFeed) {
+            return historyFeed.feed;
+        }
+        return feed;
+    }, [feed, historyFeed]);
 
     useEffect(() => {
-        adjustScroll();
-    }, [poolMessagesView]);
-
-    const adjustScroll = () => {
         if (!messagesElement) return;
         if (atNewestMessage) {
-            messagesElement?.scrollTo({ top: messagesElement.scrollHeight + 1000, behavior: "auto" })
-        } else {
-            let deltaY = 0;
-            if (!messagesElement?.contains(lastLastMessageElement.current || null)) {
-                deltaY = lastFirstMessageScrollTop.current - (lastFirstMessageElement.current?.scrollTop || 0)
-            } else {
-                deltaY = (lastLastMessageElement.current?.scrollTop || 0) - lastLastMessageScrollTop.current
-            }
-            if (deltaY != 0) {
-                messagesElement.scrollTo({ top: messagesElement.scrollTop + deltaY });
-            }
+            messagesElement.lastElementChild?.scrollIntoView();
         }
-        lastFirstMessageElement.current = messagesElement.childNodes[1] as Element || null;
-        lastFirstMessageScrollTop.current = (messagesElement.childNodes[1] as Element)?.scrollTop || 0;
-        lastLastMessageElement.current = messagesElement.lastElementChild;
-        lastLastMessageScrollTop.current = messagesElement.lastElementChild?.scrollTop || 0;
-    }
+    }, [feedView]);
 
     const onMessagesScroll = (e: React.UIEvent<HTMLDivElement, UIEvent>) => {
-        //console.log("SCROLLING", e.currentTarget.scrollTop, e.currentTarget.offsetHeight, e.currentTarget.scrollHeight, SCROLL_THRESHOLD_FOR_CONTENT);
-        if (e.currentTarget.scrollTop + e.currentTarget.offsetHeight >= e.currentTarget.scrollHeight - SCROLL_THRESHOLD_FOR_CONTENT) {
-            if (!atBottomThreshold.current && messageIndexThreshold > MAX_MESSAGES_TO_RENDER) {
+        // console.log("SCROLLING", e.currentTarget.scrollTop, e.currentTarget.offsetHeight, e.currentTarget.scrollHeight);
+        let scrollOffsetThreshold = window.innerHeight;
+        if (e.currentTarget.scrollTop + e.currentTarget.offsetHeight >= e.currentTarget.scrollHeight - scrollOffsetThreshold) {
+            if (!atBottomThreshold.current) {
                 atBottomThreshold.current = true;
-                // GET EXTRA BOTTOM (if needed/from indexedDB)
-                //console.log("GET EXTRA BOTTOM");
-                setMessageIndexThreshold(messageIndexThreshold - EXTRA_MESSAGES_TO_RENDER);
-            } else {
-                if (e.currentTarget.scrollTop + e.currentTarget.offsetHeight + 10 >= e.currentTarget.scrollHeight) {
-                    if (!atNewestMessage) {
-                        setAtNewestMessage(true);
+                Backend.requestMessageHistory(poolID, true).then((hasMore) => {
+                    console.log("Has more bottom:", hasMore);
+                    setHasMoreBottom(hasMore);
+
+                    if (hasMore) {
+                        setHasMoreTop(true);
                     }
-                } else {
-                    if (atNewestMessage) {
-                        setAtNewestMessage(false);
-                    }
-                }
+                });
             }
         } else if (atBottomThreshold.current) {
             atBottomThreshold.current = false;
-        }
-        if (e.currentTarget.scrollTop <= SCROLL_THRESHOLD_FOR_CONTENT) {
-            if (!atTopThreshold.current) {
-                atTopThreshold.current = true;
-                // GET EXTRA TOP
-                // ONLY if there is extra top, or else don't (SOLUTION RIGHT NOW DOESN"T COUNT FOR THAT)
-                // NEGATIVE MESSAGEINDEXTHRESHOLD IS FINE, because there is a Math.max in the slice
-                // So the only thing to add if using stored messages, is to have an EXTRA condition if there is extra top
-                //console.log(messages.length, messageIndexThreshold);
-                //console.log("GET EXTRA TOP", messages.length - messageIndexThreshold, messages.length - (messageIndexThreshold + EXTRA_MESSAGES_TO_RENDER), messages.length - messageIndexThreshold + MAX_MESSAGES_TO_RENDER);
-                if (feed.length - messageIndexThreshold >= 0) {
-                    setMessageIndexThreshold(messageIndexThreshold + EXTRA_MESSAGES_TO_RENDER);
+        } else {
+            if (e.currentTarget.scrollTop <= scrollOffsetThreshold) {
+                if (!atTopThreshold.current) {
+                    atTopThreshold.current = true;
+                    Backend.requestMessageHistory(poolID, false).then((hasMore) => {
+                        console.log("Has more top:", hasMore);
+                        setHasMoreTop(hasMore);
+
+                        if (hasMore) {
+                            setHasMoreBottom(true);
+                        }
+                    });
                 }
-                //setMessageIndexThreshold(messageIndexThreshold + EXTRA_MESSAGES_TO_RENDER); // maybe should only do that when messages actually render????
+            } else if (atTopThreshold.current) {
+                atTopThreshold.current = false;
             }
-        } else if (atTopThreshold.current) {
-            atTopThreshold.current = false;
+        }
+
+        if (!hasMoreBottom) {
+            if (e.currentTarget.scrollTop + e.currentTarget.offsetHeight + 10 >= e.currentTarget.scrollHeight) {
+                if (!atNewestMessage) {
+                    console.log("AT LATEST");
+                    setAtNewestMessage(true);
+                }
+            } else {
+                if (atNewestMessage) {
+                    console.log("NOT AT LATEST");
+                    setAtNewestMessage(false);
+                }
+            }
         }
     }
 
@@ -134,13 +105,41 @@ function PoolMessagesViewComponent({ poolID, feed }: PoolMessagesViewParams) {
         Backend.downloadFile(poolID, fileInfo);
     }
 
+    const goToLatest = () => {
+        if (historyFeed) {
+            setAtNewestMessage(true);
+            store.dispatch(poolAction.switchToLatestFeed({ key: poolKey }));
+        } else {
+            messagesElement!.lastElementChild?.scrollIntoView();
+        }
+    }
+
     return (
         <div className="pool-messages-container" ref={(e) => setMessagesElement(e)} onScroll={onMessagesScroll}>
+            {
+                !atNewestMessage ? (
+                    <motion.div 
+                        className="pool-message-latest-container"
+                        initial={{ y: -20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ type: "spring", duration: 0.2 }} 
+                        onClick={goToLatest}
+                    >
+                        <img src={ArrowIcon} className="pool-message-latest-arrow" />
+                    </motion.div>
+                ) : null
+            }
             <div className="pool-start-spacer">
-                <div className="pool-message-status">No saved messages beyond this point</div>
+                {
+                    hasMoreTop ? (
+                        <div className="pool-message-status">Retrieving History...</div>
+                    ) : (
+                        <div className="pool-message-status">No saved messages beyond this point</div>
+                    )
+                }
             </div>
             {
-                poolMessagesView.map((feedMsg, index) => {
+                feedView.map((feedMsg, index) => {
                     if (feedMsg.msg) {
                         let messageContentElement: JSX.Element = <></>;
                         let msg = feedMsg.msg;
@@ -195,9 +194,9 @@ function PoolMessagesViewComponent({ poolID, feed }: PoolMessagesViewParams) {
 
                         let hasHeader = (
                             index == 0 ||
-                            !poolMessagesView[index - 1].msg ||
-                            msg.userId != poolMessagesView[index - 1].msg!.userId ||  // should be deviceID
-                            msg.created - poolMessagesView[index - 1].msg!.created > CONSISTENT_MESSAGE_INTERVAL
+                            !feedView[index - 1].msg ||
+                            msg.userId != feedView[index - 1].msg!.userId ||  // should be deviceID
+                            msg.created - feedView[index - 1].msg!.created > CONSISTENT_MESSAGE_INTERVAL
                         )
 
                         return (
@@ -234,7 +233,6 @@ function PoolMessagesViewComponent({ poolID, feed }: PoolMessagesViewParams) {
                     }
                 })
             }
-            <div className="pool-end-spacer" />
         </div>
     )
 }

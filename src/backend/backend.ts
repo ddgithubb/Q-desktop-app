@@ -1,11 +1,14 @@
 import { invoke } from "@tauri-apps/api";
-import { AddDownloadAction, ClearPoolAction, SetSavedPoolDataAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
-import { poolAction } from "../store/slices/pool.slice";
-import { store } from "../store/store";
+import { AddDownloadAction, AddMessageHistoryAction, ClearPoolAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
+import { checkMajorityMessageOverlap, poolAction } from "../store/slices/pool.slice";
+import { getStoreState, store } from "../store/store";
 import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
 import { PoolFileInfo } from "../types/pool.v1";
 import { open } from '@tauri-apps/api/dialog';
-import { IPCSavedPoolData } from "./backend.model";
+import { IPCPoolMessageHistory } from "./backend.model";
+import sanitizeHTML from "sanitize-html";
+
+const BR_TAG: string = "<br />";
 
 export class BackendCommands {
 
@@ -17,7 +20,7 @@ export class BackendCommands {
         return this.poolKeyMap.get(poolId);
     }
 
-    async connectToPool(poolId: string, poolKey: number, displayName: string) {
+    connectToPool(poolId: string, poolKey: number, displayName: string) {
         this.poolKeyMap.set(poolId, poolKey);
 
         store.dispatch(poolAction.updateConnectionState({
@@ -25,12 +28,7 @@ export class BackendCommands {
             state: PoolConnectionState.CONNECTING,
         } as UpdateConnectionStateAction));
 
-        let savedPoolData: IPCSavedPoolData = await invoke('connect_to_pool', { poolId, displayName });
-        let setSavedPoolDataAction: SetSavedPoolDataAction = {
-            key: poolKey,
-            offlinePoolData: savedPoolData,
-        };
-        store.dispatch(poolAction.setSavedPoolData(setSavedPoolDataAction));
+        invoke('connect_to_pool', { poolId, displayName });
     }
 
     disconnectFromPool(poolId: string) {
@@ -46,8 +44,23 @@ export class BackendCommands {
         invoke('disconnect_from_pool', { poolId });
     }
 
-    sendTextMessage(poolId: string, text: String) {
-        invoke('send_text_message', { poolId, text: text.trim() });
+    sendTextMessage(poolId: string, text: string) {
+        text = sanitizeHTML(text.trim(), { allowedTags: ['br'] });
+
+        let i = text.length - BR_TAG.length;
+        while (i >= 0) {
+            if (text.substring(i, i + BR_TAG.length) != BR_TAG) {
+                break;
+            }
+            text = text.slice(0, i);
+            i -= BR_TAG.length;
+        }
+
+        if (text.length == 0) {
+            return;
+        }
+        
+        invoke('send_text_message', { poolId, text });
     }
 
     async addFileOffer(poolId: string) {
@@ -144,4 +157,72 @@ export class BackendCommands {
             invoke('remove_file_download', { poolId, fileId: fileDownload.fileInfo.fileId });
         }
     }
+
+    async requestMessageHistory(poolId: string, asc: boolean = false): Promise<boolean> {
+        let key = this.getPoolKey(poolId);
+        if (key == undefined) return false;
+        let messageHistory: IPCPoolMessageHistory;
+
+        let pool = getStoreState().pool.pools[key];
+        if (pool.historyFeed) {
+            let chunkNumber: number;
+            if (asc) {
+                if (checkMajorityMessageOverlap(pool.historyFeed.feed, pool.feed)) {
+                    store.dispatch(poolAction.switchToLatestFeed({ key }));
+                    return false;
+                }
+
+                chunkNumber =
+                    pool.historyFeed.historyChunkNumber + pool.historyFeed.historyChunkLens.length;
+
+                if (pool.historyFeed.wasLatest) {
+                    chunkNumber -= 1;
+                }
+            } else {
+                if (pool.historyFeed.historyChunkNumber == 0) {
+                    return false;
+                }
+
+                chunkNumber = pool.historyFeed.historyChunkNumber - 1; 
+            }
+
+            // console.log("Requesting Message History", chunkNumber);
+
+            messageHistory = await invoke('request_message_history', { poolId, msgId: "", chunkNumber });
+        } else {
+            if (asc) {
+                return false;
+            }
+
+            let msgId = "";
+            for (const feedMsg of pool.feed) {
+                if (feedMsg.msg) {
+                    console.log(feedMsg.msg);
+                    msgId = feedMsg.msg.msgId;
+                    break;
+                }
+            }
+            
+            if (msgId == "") {
+                return false;
+            }
+
+            // console.log("Requesting Message History", msgId);
+
+            messageHistory = await invoke('request_message_history', { poolId, msgId, chunkNumber: 0 });
+        }
+
+        if (messageHistory.messages.length == 0) {
+            return false;
+        }
+
+        let addMessageHistoryAction: AddMessageHistoryAction = {
+            key,
+            messageHistory,
+        };
+        store.dispatch(poolAction.addMessageHistory(addMessageHistoryAction));
+
+        return true;
+    }
+
 }

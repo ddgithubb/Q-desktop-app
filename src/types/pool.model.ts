@@ -39,6 +39,14 @@ export interface Pool {
     availableFiles: PoolFileSeeders[];
     downloadQueue: PoolFileDownload[];
     feed: FeedMessage[];
+    historyFeed?: HistoryFeed;
+}
+
+export interface HistoryFeed {
+    feed: FeedMessage[];
+    historyChunkLens: number[];
+    historyChunkNumber: number;
+    wasLatest: boolean;
 }
 
 export interface FeedMessage {

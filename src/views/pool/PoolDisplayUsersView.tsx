@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from "react";
 import { IndicatorDot } from "../components/IndicatorDot";
 
-import AccordionArrowIcon from '../../assets/accordion-arrow.png';
+import ArrowIcon from '../../assets/arrow.png';
 import { fileSizeToString } from "../../utils/file-size";
 
 import BrowserIcon from '../../assets/browser.png';
@@ -45,7 +45,7 @@ function PoolDisplayUsersViewComponent({ poolID, users, hidden }: PoolDisplayUse
                     return (
                         <div className="display-user-accordion-container" key={user.userId}>
                             <div className="display-user-header elipsify-container" onClick={() => toggleAccordion(user.userId)}>
-                                <img className="display-user-accordion-arrow" src={AccordionArrowIcon} aria-expanded={openAccordionUsersMap.get(user.userId)} />
+                                <img className="display-user-accordion-arrow" src={ArrowIcon} aria-expanded={openAccordionUsersMap.get(user.userId)} />
                                 <div className="display-user-display-name elipsify-content">{user.displayName}</div>
                                 <div className="display-user-info-point elipsify-extra">
                                     <IndicatorDot type={activeDevicesCount ? "online" : "offline"} size="small" />

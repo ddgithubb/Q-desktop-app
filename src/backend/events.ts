@@ -1,10 +1,10 @@
 import { listen } from '@tauri-apps/api/event';
-import { AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, InitMessageAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction } from '../store/slices/pool.action';
-import { poolAction } from '../store/slices/pool.slice';
+import { AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, LatestMessagesAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction } from '../store/slices/pool.action';
+import { poolAction, setMaxFeedSize } from '../store/slices/pool.slice';
 import { profileAction, ProfileState } from '../store/slices/profile.slice';
 import { PoolStore, store } from '../store/store';
 import { PoolConnectionState } from '../types/pool.model';
-import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './backend.model';
+import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './backend.model';
 import { Backend } from './global';
 
 const STATE_UPDATE_EVENT: string = "state-update";
@@ -24,7 +24,7 @@ const INIT_POOL_FILE_SEEDERS_EVENT: string = "init-pool-file-seeders";
 
 const COMPLETE_POOL_FILE_DOWNLOAD_EVENT: string = "complete-pool-file-download";
 
-const INIT_POOL_MESSAGES_EVENT: string = "init-pool-messages";
+const LATEST_POOL_MESSAGES_EVENT: string = "latest-pool-messages";
 const APPEND_POOL_MESSAGE_EVENT: string = "append-pool-message";
 
 listen(STATE_UPDATE_EVENT, (event) => {
@@ -165,16 +165,17 @@ listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {
     store.dispatch(poolAction.completeDownload(completeDownloadAction));
 });
 
-listen(INIT_POOL_MESSAGES_EVENT, (event) => {
-    let initMessages: IPCInitPoolMessages = event.payload as any;
-    let key = Backend.getPoolKey(initMessages.pool_id);
+listen(LATEST_POOL_MESSAGES_EVENT, (event) => {
+    let latestMessages: IPCLatestPoolMessages = event.payload as any;
+    let key = Backend.getPoolKey(latestMessages.pool_id);
     if (key == undefined) return;
 
-    let initMessagesAction: InitMessageAction = {
+    setMaxFeedSize(latestMessages.max_messages_render);
+    let latestMessagesAction: LatestMessagesAction = {
         key,
-        messages: initMessages.messages,
+        messages: latestMessages.messages,
     };
-    store.dispatch(poolAction.initMessages(initMessagesAction));
+    store.dispatch(poolAction.latestMessages(latestMessagesAction));
 });
 
 listen(APPEND_POOL_MESSAGE_EVENT, (event) => {

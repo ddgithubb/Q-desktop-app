@@ -9,6 +9,7 @@ export function Pools() {
 
     useEffect(() => {
         navigate("/pool/main?displayName=TEST");
+        // navigate("/join-pool");
     }, [])
 
     return (

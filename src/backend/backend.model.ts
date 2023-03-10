@@ -78,9 +78,10 @@ export interface IPCCompletePoolFileDownload {
     success: boolean,
 }
 
-export interface IPCInitPoolMessages {
+export interface IPCLatestPoolMessages {
     pool_id: string,
     messages: PoolMessage[],
+    max_messages_render: number, // TEMP
 }
 
 export interface IPCAppendPoolMessage {
@@ -88,3 +89,9 @@ export interface IPCAppendPoolMessage {
     message: PoolMessage,
 }
 
+export interface IPCPoolMessageHistory {
+    messages: PoolMessage[],
+    chunk_lens: number[],
+    chunk_number: number,
+    is_latest: boolean,
+}

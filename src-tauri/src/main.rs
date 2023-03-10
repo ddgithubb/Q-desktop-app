@@ -3,26 +3,31 @@
     windows_subsystem = "windows"
 )]
 
-use std::{sync::Arc, env};
+use std::{env, sync::Arc};
 
 use app::{
-    __cmd__connect_to_pool, __cmd__disconnect_from_pool, __cmd__download_file,
-    __cmd__remove_file_download, __cmd__retract_file_offer, __cmd__add_file_offer,
-    __cmd__add_image_offer, __cmd__send_text_message,
+    __cmd__add_file_offer, __cmd__add_image_offer, __cmd__connect_to_pool,
+    __cmd__disconnect_from_pool, __cmd__download_file, __cmd__remove_file_download,
+    __cmd__request_message_history, __cmd__retract_file_offer, __cmd__send_text_message,
     commands::{
-        connect_to_pool, disconnect_from_pool, download_file, remove_file_download,
-        retract_file_offer, add_file_offer, add_image_offer, send_text_message,
+        add_file_offer, add_image_offer, connect_to_pool, disconnect_from_pool, download_file,
+        remove_file_download, request_message_history, retract_file_offer, send_text_message,
     },
-    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, config::PRODUCTION_MODE, store::file_store::FileStore, sspb::{PoolUserInfo, PoolDeviceInfo, DeviceType}, ipc::IPCInitProfile, events::init_profile_event,
+    config::PRODUCTION_MODE,
+    events::init_profile_event,
+    ipc::IPCInitProfile,
+    sspb::{DeviceType, PoolDeviceInfo, PoolUserInfo},
+    store::file_store::FileStore,
+    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER,
 };
 use log::info;
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, Window, WindowEvent};
 
 #[tokio::main]
 async fn main() {
     if !PRODUCTION_MODE {
-      env::set_var("RUST_LOG", "app=trace");
-      env::set_var("RUST_BACKTRACE", "1");
+        env::set_var("RUST_LOG", "app=trace");
+        env::set_var("RUST_BACKTRACE", "1");
     }
 
     env_logger::init();
@@ -34,7 +39,7 @@ async fn main() {
             let main_window = app.get_window("main").unwrap();
 
             tokio::spawn(async move {
-                init_app().await;
+                init_app(&main_window).await;
                 init_app_tests().await;
                 main_window.show().unwrap();
             });
@@ -44,18 +49,16 @@ async fn main() {
             Ok(())
         })
         .register_uri_scheme_protocol("media", FileStore::register_media_protocol)
-        .on_window_event(|event| {
-            match event.event() {
-                WindowEvent::Destroyed => {
-                    let (destroyed_tx, destroyed_rx) = flume::bounded(0);
-                    tokio::spawn(async move {
-                        destroy_app().await;
-                        let _ = destroyed_tx.send(());
-                    });
-                    let _ = destroyed_rx.recv();
-                },
-                _ => {}
+        .on_window_event(|event| match event.event() {
+            WindowEvent::Destroyed => {
+                let (destroyed_tx, destroyed_rx) = flume::bounded(0);
+                tokio::spawn(async move {
+                    destroy_app().await;
+                    let _ = destroyed_tx.send(());
+                });
+                let _ = destroyed_rx.recv();
             }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             connect_to_pool,
@@ -66,6 +69,7 @@ async fn main() {
             download_file,
             retract_file_offer,
             remove_file_download,
+            request_message_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -84,11 +88,8 @@ async fn init_app_tests() {
             device_name: "Test Device".into(),
         }],
     };
-    
-    STORE_MANAGER.new_profile(
-        user_info.clone(),
-        user_info.devices[0].clone(),
-    );
+
+    STORE_MANAGER.new_profile(user_info.clone(), user_info.devices[0].clone());
 
     init_profile_event(IPCInitProfile {
         device: user_info.devices[0].clone(),
@@ -96,11 +97,19 @@ async fn init_app_tests() {
     });
 }
 
-async fn init_app() {
+async fn init_app(main_window: &Window) {
     info!("Initializing App...");
     lazy_static::initialize(&POOL_MANAGER);
     lazy_static::initialize(&STORE_MANAGER);
     lazy_static::initialize(&MESSAGES_DB);
+    STORE_MANAGER.set_monitor_height(
+        main_window
+            .current_monitor()
+            .unwrap()
+            .unwrap()
+            .size()
+            .height,
+    );
     info!("Initialized App!");
 }
 

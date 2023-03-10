@@ -1,15 +1,18 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { IPCInitPool } from "../../backend/backend.model";
-import { Backend } from "../../backend/global";
 import { Pool, PoolConnectionState, DownloadProgressStatus, FeedMessage, NodeStatus, UserStatus } from "../../types/pool.model";
-import { PoolMessage, PoolFileInfo } from "../../types/pool.v1";
-import { PoolDeviceInfo, PoolUserInfo } from "../../types/sync_server.v1";
-import { PoolInfo, SSMessage_InitPoolData } from "../../types/sync_server.v1";
-import { PoolStore, store } from "../store";
-import { PoolsState, PoolAction, UpdateConnectionStateAction, AddUserAction, RemoveUserAction, InitMessageAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction, SetSavedPoolDataAction, SetPoolsAction } from "./pool.action";
+import { PoolFileInfo, PoolMessage } from "../../types/pool.v1";
+import { PoolStore } from "../store";
+import { PoolsState, PoolAction, UpdateConnectionStateAction, AddUserAction, RemoveUserAction, LatestMessagesAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction, SetPoolsAction, AddMessageHistoryAction } from "./pool.action";
 
-const MAX_FEED_SIZE = 1000;
+// const MAX_FEED_SIZE = 100;
 // const MAX_FEED_SIZE = 50;
+var MAX_FEED_SIZE = 100; // DEFAULT
+var HISTORY_OVERLAP_THRESHOLD = Math.trunc(MAX_FEED_SIZE / 2);
+
+export function setMaxFeedSize(maxFeedSize: number) {
+    MAX_FEED_SIZE = maxFeedSize;
+    HISTORY_OVERLAP_THRESHOLD = Math.trunc(MAX_FEED_SIZE / 2);
+}
 
 const initialState: PoolsState = {
     pools: [],
@@ -41,16 +44,6 @@ const poolSlice = createSlice({
                 }
             }
         },
-        setSavedPoolData(state: PoolsState, action: PayloadAction<SetSavedPoolDataAction>) {
-            let pool = getPool(state, action);
-            let offlinePoolData = action.payload.offlinePoolData;
-            pool.feed = offlinePoolData.messages.map((msg) => {
-                let feedMsg: FeedMessage = {
-                    msg,
-                };
-                return feedMsg;
-            });
-        },
         initPool(state: PoolsState, action: PayloadAction<InitPoolAction>) {
             let pool = getPool(state, action);
             let initPool = action.payload.initPool;
@@ -76,6 +69,7 @@ const poolSlice = createSlice({
             pool.availableFiles = [];
             pool.downloadQueue = [];
             pool.feed = [];
+            pool.historyFeed = undefined;
 
             PoolStore.clearActiveDevices(pool.poolID);
         },
@@ -87,17 +81,13 @@ const poolSlice = createSlice({
             let pool = getPool(state, action);
             let userInfo = action.payload.userInfo;
 
-            pool.feed.push({
+            addToFeed(pool.feed, {
                 userStatus: {
                     userID: userInfo.userId,
                     status: UserStatus.JOINED,
                     created: Date.now(),
                 }
             });
-
-            if (pool.feed.length > MAX_FEED_SIZE) {
-                pool.feed.shift();
-            }
 
             pool.users.push(userInfo);
 
@@ -107,17 +97,13 @@ const poolSlice = createSlice({
             let pool = getPool(state, action);
             let userID = action.payload.userID;
 
-            pool.feed.push({
+            addToFeed(pool.feed, {
                 userStatus: {
                     userID,
                     status: UserStatus.LEFT,
                     created: Date.now(),
                 }
             });
-
-            if (pool.feed.length > MAX_FEED_SIZE) {
-                pool.feed.shift();
-            }
 
             for (let i = 0; i < pool.users.length; i++) {
                 if (pool.users[i].userId == action.payload.userID) {
@@ -126,32 +112,12 @@ const poolSlice = createSlice({
                 }
             }
         },
-        initMessages(state: PoolsState, action: PayloadAction<InitMessageAction>) {
-            let pool = getPool(state, action);
-            pool.feed = action.payload.messages.map((msg) => {
-                let feedMsg: FeedMessage = {
-                    msg,
-                };
-                return feedMsg;
-            });
-        },
-        appendMessage(state: PoolsState, action: PayloadAction<AppendMessageAction>) {
-            let pool = getPool(state, action);
-            
-            pool.feed.push({
-                msg: action.payload.message,
-            });
-
-            if (pool.feed.length > MAX_FEED_SIZE) {
-                pool.feed.shift();
-            }
-        },
         addNode(state: PoolsState, action: PayloadAction<AddNodeAction>) {
             let pool = getPool(state, action);
             let nodeID = action.payload.nodeID;
             let userID = action.payload.userID;
             
-            pool.feed.push({
+            addToFeed(pool.feed, {
                 nodeStatus: {
                     nodeID,
                     userID,
@@ -159,10 +125,6 @@ const poolSlice = createSlice({
                     created: Date.now(),
                 },
             });
-
-            if (pool.feed.length > MAX_FEED_SIZE) {
-                pool.feed.shift();
-            }
 
             PoolStore.addActiveDevice(pool.poolID, nodeID, userID);
         },
@@ -172,7 +134,7 @@ const poolSlice = createSlice({
             let userID = PoolStore.getActiveDeviceUserID(pool.poolID, nodeID);
             if (!userID) return;
 
-            pool.feed.push({
+            addToFeed(pool.feed, {
                 nodeStatus: {
                     nodeID: action.payload.nodeID,
                     userID: userID,
@@ -180,10 +142,6 @@ const poolSlice = createSlice({
                     created: Date.now(),
                 },
             });
-
-            if (pool.feed.length > MAX_FEED_SIZE) {
-                pool.feed.shift();
-            }
 
             for (let i = 0; i < pool.availableFiles.length; i++) {
                 let fileOffer = pool.availableFiles[i];
@@ -299,12 +257,163 @@ const poolSlice = createSlice({
                 }
             }
             PoolStore.removeDownloadProgress(action.payload.fileID);
+        },
+        latestMessages(state: PoolsState, action: PayloadAction<LatestMessagesAction>) {
+            let pool = getPool(state, action);
+            pool.feed = messagesToFeed(action.payload.messages);
+        },
+        appendMessage(state: PoolsState, action: PayloadAction<AppendMessageAction>) {
+            let pool = getPool(state, action);
+            
+            addToFeed(pool.feed, {
+                msg: action.payload.message,
+            });
+        },
+        addMessageHistory(state: PoolsState, action: PayloadAction<AddMessageHistoryAction>) {
+            let pool = getPool(state, action);
+            let messageHistory = action.payload.messageHistory;
+            let newFeed = messagesToFeed(messageHistory.messages);
+
+            if (!pool.historyFeed) {
+                // desc, transition from regular feed
+                pool.historyFeed = {
+                    feed: newFeed,
+                    historyChunkLens: messageHistory.chunk_lens,
+                    historyChunkNumber: messageHistory.chunk_number,
+                    wasLatest: messageHistory.is_latest,
+                };
+                attatchOverlappingHistoryFeed(pool);
+            } else if (messageHistory.chunk_number < pool.historyFeed.historyChunkNumber) {
+                // desc
+                newFeed.push(...pool.historyFeed.feed);
+                pool.historyFeed.feed = newFeed;
+                pool.historyFeed.historyChunkLens.unshift(messageHistory.messages.length);
+                pool.historyFeed.historyChunkNumber = messageHistory.chunk_number;
+                pool.historyFeed.wasLatest = false;
+
+                let newFeedLen = pool.historyFeed.feed.length; 
+                while (newFeedLen > MAX_FEED_SIZE && pool.historyFeed.historyChunkLens.length > 2) {
+                    let chunkLen = pool.historyFeed.historyChunkLens.pop()!;
+                    newFeedLen -= chunkLen; 
+                }
+
+                if (newFeedLen != pool.historyFeed.feed.length) {
+                    pool.historyFeed.feed.splice(newFeedLen);
+                }
+            } else {
+                // asc
+                if (pool.historyFeed.wasLatest) { // Garaunteed to be the same chunkNumber as last history chunk
+                    let newFeedLen =
+                            pool.historyFeed.feed.length -
+                            pool.historyFeed.historyChunkLens[pool.historyFeed.historyChunkLens.length - 1];
+                    pool.historyFeed.feed.splice(newFeedLen);
+                    pool.historyFeed.feed.push(...newFeed);
+                } else {
+                    pool.historyFeed.feed.push(...newFeed);
+                    pool.historyFeed.historyChunkLens.push(messageHistory.messages.length);
+
+                    let newFeedLen = pool.historyFeed.feed.length; 
+                    while (newFeedLen > MAX_FEED_SIZE && pool.historyFeed.historyChunkLens.length > 2) {
+                        let chunkLen = pool.historyFeed.historyChunkLens.shift()!;
+                        newFeedLen -= chunkLen;
+                        pool.historyFeed.historyChunkNumber += 1;
+                    }
+
+                    if (newFeedLen != pool.historyFeed.feed.length) {
+                        let deleteCount = pool.historyFeed.feed.length - newFeedLen;
+                        pool.historyFeed.feed.splice(0, deleteCount);
+                    }
+                }
+
+                if (messageHistory.is_latest) {
+                    attatchOverlappingHistoryFeed(pool);
+                }
+
+                pool.historyFeed.wasLatest = messageHistory.is_latest;
+            }
+        },
+        switchToLatestFeed(state: PoolsState, action: PayloadAction<PoolAction>) {
+            let pool = getPool(state, action);
+            pool.historyFeed = undefined;
         }
     }
 });
 
 function getPool(state: PoolsState, action: PayloadAction<PoolAction>): Pool {
     return state.pools[action.payload.key];
+}
+
+function messagesToFeed(messages: PoolMessage[]): FeedMessage[] {
+    return messages.map((msg) => {
+        let feedMsg: FeedMessage = {
+            msg,
+        };
+        return feedMsg;
+    });
+}
+
+function addToFeed(feed: FeedMessage[], feedMsg: FeedMessage) {
+    feed.push(feedMsg);
+
+    if (feed.length > MAX_FEED_SIZE) {
+        if (feed[1].msg) {
+            feed.shift();
+        } else {
+            feed.splice(1, 1);
+        }
+    }
+}
+
+// pool feed first message must be a valid message with msgID
+// Returns NEW lastChunkLen
+function attatchOverlappingHistoryFeed(pool: Pool) {
+    if (!pool.historyFeed) {
+        return;
+    }
+
+    let historyFeed = pool.historyFeed.feed;
+    let lastChunkLen = pool.historyFeed.historyChunkLens[pool.historyFeed.historyChunkLens.length - 1];
+    let firstOverlapMsgID = pool.feed[0].msg!.msgId;
+    let lastOverlapMsgID = historyFeed[historyFeed.length - 1].msg!.msgId;
+    let overlapMessages: FeedMessage[] | undefined = undefined;
+
+    // console.log("BEFORE HISTORY CHUNKS", historyFeed.slice(), lastChunkLen, firstOverlapMsgID, lastOverlapMsgID);
+
+    for (let i = 0; i < pool.feed.length; i++) {
+        if (pool.feed[i].msg?.msgId == lastOverlapMsgID) {
+            overlapMessages = pool.feed.slice(0, i + 1);
+            break;
+        }
+    }
+
+    // console.log("Overlapping messages len", overlapMessages?.length);
+
+    if (overlapMessages != undefined) {
+        for (let i = historyFeed.length - lastChunkLen; i < historyFeed.length; i++) {
+            if (historyFeed[i].msg?.msgId == firstOverlapMsgID) {
+                historyFeed.splice(i);
+                lastChunkLen -= historyFeed.length - i;
+                historyFeed.push(...overlapMessages);
+                lastChunkLen += overlapMessages.length;
+                break;
+            }
+        }
+    }
+
+    // console.log("AFTER HISTORY CHUNKS", historyFeed.slice(), lastChunkLen);
+    
+    pool.historyFeed.historyChunkLens[pool.historyFeed.historyChunkLens.length - 1] = lastChunkLen;
+}
+
+export function checkMajorityMessageOverlap(msgs1: FeedMessage[], msgs2: FeedMessage[]): boolean {
+    let msgID = msgs1[msgs1.length - 1].msg!.msgId;
+
+    for (let i = HISTORY_OVERLAP_THRESHOLD; i < msgs2.length; i++) {
+        if (msgs2[i].msg?.msgId == msgID) {
+            return true;
+        }
+    }
+    return false;
 }
 
 export const poolReducer = poolSlice.reducer;

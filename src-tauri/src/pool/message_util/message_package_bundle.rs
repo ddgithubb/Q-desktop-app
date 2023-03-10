@@ -13,8 +13,7 @@ pub struct MessagePackageBundle {
 
 impl MessagePackageBundle {
     pub fn create(msg_pkg: PoolMessagePackage, from_node_id: String) -> Self {
-        let mut buf: Vec<u8> = Vec::new();
-        let _ = msg_pkg.encode(&mut buf);
+        let buf = msg_pkg.encode_to_vec();
         let is_chunk = msg_pkg.chunk_msg.is_some();
         MessagePackageBundle {
             msg_pkg,
@@ -31,8 +30,7 @@ impl MessagePackageBundle {
             if &self.msg_pkg.dests[i].node_id == target_node_id {
                 self.msg_pkg.dests.remove(i);
                 if !self.msg_pkg.dests.is_empty() {
-                    let mut buf: Vec<u8> = Vec::new();
-                    let _ = self.msg_pkg.encode(&mut buf);
+                    let buf = self.msg_pkg.encode_to_vec();
                     self.encoded_msg_pkg = Bytes::from(buf);
                 }
                 return true;

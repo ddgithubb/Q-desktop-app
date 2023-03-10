@@ -2,14 +2,14 @@ use tauri::Manager;
 
 use crate::{
     ipc::{
-        IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload,
-        IPCInitPool, IPCInitPoolFileSeeders, IPCInitPoolMessages, IPCInitProfile, IPCPoolNode,
-        IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate,
-        IPCAddPoolUser, IPCReconnectPool,
+        IPCAddPoolFileOffers, IPCAddPoolNode, IPCAddPoolUser, IPCAppendPoolMessage,
+        IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitProfile,
+        IPCLatestPoolMessages, IPCPoolNode, IPCReconnectPool, IPCRemovePoolFileOffer,
+        IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate,
     },
     poolpb::{PoolFileInfo, PoolFileSeeders, PoolMessage},
     sspb::PoolUserInfo,
-    GLOBAL_APP_HANDLE,
+    GLOBAL_APP_HANDLE, MESSAGES_DB, STORE_MANAGER,
 };
 
 const STATE_UPDATE_EVENT: &'static str = "state-update";
@@ -29,7 +29,7 @@ const INIT_POOL_FILE_SEEDERS_EVENT: &'static str = "init-pool-file-seeders";
 
 const COMPLETE_POOL_FILE_DOWNLOAD_EVENT: &'static str = "complete-pool-file-download";
 
-const INIT_POOL_MESSAGES_EVENT: &'static str = "init-pool-messages";
+const LATEST_POOL_MESSAGES_EVENT: &'static str = "latest-pool-messages";
 const APPEND_POOL_MESSAGE_EVENT: &'static str = "append-pool-message";
 
 pub fn state_update_event(state: IPCStateUpdate) {
@@ -52,9 +52,12 @@ pub fn init_pool_event(init_pool: IPCInitPool) {
 
 pub fn reconnect_pool_event(pool_id: &String) {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
-        let _ = app_handle.emit_all(RECONNECT_POOL_EVENT, IPCReconnectPool {
-            pool_id: pool_id.clone(),
-        });
+        let _ = app_handle.emit_all(
+            RECONNECT_POOL_EVENT,
+            IPCReconnectPool {
+                pool_id: pool_id.clone(),
+            },
+        );
     }
 }
 
@@ -161,13 +164,15 @@ pub fn complete_pool_file_download_event(pool_id: &String, file_id: String, succ
     }
 }
 
-pub fn init_pool_messages_event(pool_id: &String, messages: Vec<PoolMessage>) {
+pub fn latest_pool_messages_event(pool_id: &String) {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
+        let max_messages_render = STORE_MANAGER.max_messages_render();
         let _ = app_handle.emit_all(
-            INIT_POOL_MESSAGES_EVENT,
-            IPCInitPoolMessages {
+            LATEST_POOL_MESSAGES_EVENT,
+            IPCLatestPoolMessages {
                 pool_id: pool_id.clone(),
-                messages,
+                messages: MESSAGES_DB.last_messages(&pool_id, max_messages_render),
+                max_messages_render,
             },
         );
     }

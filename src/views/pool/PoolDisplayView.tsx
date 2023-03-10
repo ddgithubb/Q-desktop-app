@@ -12,9 +12,10 @@ import AddIcon from '../../assets/add.png'
 import AddImageIcon from '../../assets/add-image.png'
 import FileIcon from '../../assets/file.png'
 import CancelIcon from '../../assets/trash.png'
-import SendIcon from '../../assets/send.png'
 import { Backend } from '../../backend/global'
 import { PoolStore } from '../../store/store'
+
+const MAX_TEXT_MESSAGE_LENGTH: number = 1000;
 
 export interface PoolDisplayViewParams {
     pool: Pool;
@@ -64,7 +65,7 @@ function PoolDisplayViewComponent({ pool, messageMode }: PoolDisplayViewParams) 
             shiftKeyDown.current = true;
         }
         if (!textAreaElement) return
-        if (textAreaElement?.innerHTML.length >= 5000) {
+        if (textAreaElement?.innerHTML.length >= MAX_TEXT_MESSAGE_LENGTH) {
             e.preventDefault();
         }
         textAreaElement?.scrollTo({ top: textAreaElement.scrollHeight });

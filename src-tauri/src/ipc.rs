@@ -23,11 +23,6 @@ pub struct IPCInitProfile {
 }
 
 #[derive(Clone, Serialize)]
-pub struct IPCSavedPoolData {
-    pub messages: Vec<PoolMessage>,
-}
-
-#[derive(Clone, Serialize)]
 pub struct IPCPoolNode {
     pub node_id: String,
     pub user_id: String,
@@ -97,13 +92,22 @@ pub struct IPCCompletePoolFileDownload {
 }
 
 #[derive(Clone, Serialize)]
-pub struct IPCInitPoolMessages {
+pub struct IPCLatestPoolMessages {
     pub pool_id: String,
     pub messages: Vec<PoolMessage>,
+    pub max_messages_render: usize, // TEMP
 }
 
 #[derive(Clone, Serialize)]
 pub struct IPCAppendPoolMessage {
     pub pool_id: String,
     pub message: PoolMessage,
+}
+
+#[derive(Clone, Serialize)]
+pub struct IPCPoolMessageHistory {
+    pub messages: Vec<PoolMessage>,
+    pub chunk_lens: Vec<usize>,
+    pub chunk_number: u64,
+    pub is_latest: bool,
 }

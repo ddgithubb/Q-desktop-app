@@ -238,10 +238,10 @@ impl FileManager {
         }
     }
 
-    pub(super) fn broadcast_file(&self, file_id: String) {
+    pub(super) fn _broadcast_file(&self, file_id: String) {
         let chunk_senders = self.chunk_senders.read();
         if let Some(chunk_sender) = chunk_senders.get(&file_id) {
-            chunk_sender.broadcast_file(file_id);
+            chunk_sender._broadcast_file(file_id);
         }
     }
 
@@ -901,7 +901,7 @@ impl ChunkSender {
         }
     }
 
-    pub fn broadcast_file(&self, file_id: String) {
+    pub fn _broadcast_file(&self, file_id: String) {
         if let Some(file_manager) = self.file_manager_ref.upgrade() {
             tokio::task::spawn_blocking(move || {
                 file_manager.chunk_sender_loop(file_id, true);

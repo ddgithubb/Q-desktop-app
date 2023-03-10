@@ -14,10 +14,10 @@ use crate::config::{
     sync_server_connect_endpoint, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_TIMEOUT_SECONDS,
 };
 use crate::events::{
-    add_pool_node_event, add_pool_user_event, init_pool_event, init_profile_event,
+    add_pool_node_event, add_pool_user_event, init_pool_event,
     remove_pool_node_event, remove_pool_user_event,
 };
-use crate::ipc::{IPCInitPool, IPCInitProfile, IPCPoolNode};
+use crate::ipc::{IPCInitPool, IPCPoolNode};
 use crate::sspb::ss_message::{
     self, AddNodeData, AddUserData, Data as SSMessageData, InitPoolData, Op as SSMessageOp,
     RemoveNodeData, RemoveUserData, SdpResponseData, SuccessResponseData,
@@ -431,8 +431,6 @@ impl SyncServerClient {
     }
 
     fn encode_ss_message(ss_msg: SSMessage) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(ss_msg.encoded_len());
-        let _ = ss_msg.encode(&mut buf);
-        buf
+        ss_msg.encode_to_vec()
     }
 }

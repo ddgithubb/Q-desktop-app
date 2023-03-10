@@ -24,7 +24,8 @@ pub const CACHE_FILE_SIZE: usize = 256 * 1024 * 1024;
 pub const MAX_CACHE_CHUNKS_AMOUNT: usize = CACHE_FILE_SIZE / CACHE_CHUNK_SIZE; 
 
 pub const MAX_TEMP_FILE_SIZE: u64 = 16 * 1024 * 1024;
-pub const MAX_TEMP_FILES_SIZE_PER_POOL: u64 = 64 * 1024 * 1024;
+// pub const MAX_TEMP_FILES_PER_POOL: usize = 10;
+pub const MAX_TEMP_FILES_SIZE_PER_POOL: u64 = 128 * 1024 * 1024;
 // pub const TOTAL_TEMP_FILE_THRESHOLD: u64 = 512 * 1024 * 1024;
 
 pub const MAX_SEND_CHUNK_BUFFER_SIZE: usize = 16 * 1024 * 1024;
@@ -37,11 +38,15 @@ pub const CHUNKS_MISSING_SEND_INTERVAL: Duration = Duration::from_secs(CHUNKS_MI
 pub const MAX_CHUNKS_MISSING_RETRY: usize = 3;
 pub const MAX_POLL_COUNT_BEFORE_SEND: usize = CHUNKS_MISSING_SEND_INTERVAL_IN_SEC / CHUNKS_MISSING_POLLING_INTERVAL_IN_SEC; 
 
+pub const MESSAGES_DB_CHUNK_SIZE: u64 = 16 * 1024;
 pub const RECEIVED_MESSAGES_SIZE: usize = 100;
 pub const LATEST_MESSAGES_SIZE: usize = 50;
 
-pub const MESSAGE_ID_LENGTH: usize = 21;
-pub const FILE_ID_LENGTH: usize = 21;
+pub const MIN_MESSAGE_HIEGHT: u32 = 28;
+pub const MESSAGE_VIEWPORT_SIZE: u32 = 3;
+
+pub const MESSAGE_ID_LENGTH: usize = 10;
+pub const FILE_ID_LENGTH: usize = 10;
 
 pub const PREVIEW_IMAGE_DIMENSION: u32 = 10;
 

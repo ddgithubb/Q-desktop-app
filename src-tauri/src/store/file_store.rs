@@ -358,11 +358,9 @@ impl FileStore {
             Some(mut path) => {
                 path.push(pool_id);
 
+                let _ = create_dir(path.clone());
                 if !path.exists() {
-                    let _ = create_dir(path.clone());
-                    if !path.exists() {
-                        return None;
-                    }
+                    return None;
                 }
 
                 path.push(file_id);

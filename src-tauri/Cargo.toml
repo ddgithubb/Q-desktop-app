@@ -36,6 +36,7 @@ nanoid = "0.4.0"
 anyhow = "1.0.69"
 webrtc = "0.6.0"
 env_logger = "0.10.0"
+rmp-serde = "1.1.1"
 
 [features]
 # by default Tauri runs in production mode
