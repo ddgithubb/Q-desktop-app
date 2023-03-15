@@ -4,7 +4,7 @@ import { poolAction, setMaxFeedSize } from '../store/slices/pool.slice';
 import { profileAction, ProfileState } from '../store/slices/profile.slice';
 import { PoolStore, store } from '../store/store';
 import { PoolConnectionState } from '../types/pool.model';
-import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './backend.model';
+import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './ipc';
 import { Backend } from './global';
 
 const STATE_UPDATE_EVENT: string = "state-update";
@@ -35,6 +35,7 @@ listen(STATE_UPDATE_EVENT, (event) => {
 listen(INIT_PROFILE_EVENT, (event) => {
     let initProfile: IPCInitProfile = event.payload as any;
     let profileState: ProfileState = {
+        registered: initProfile.registered,
         userInfo: initProfile.user_info,
         device: initProfile.device,
     };
@@ -63,6 +64,8 @@ listen(RECONNECT_POOL_EVENT, (event) => {
         state: PoolConnectionState.RECONNECTING,
     };
     store.dispatch(poolAction.updateConnectionState(updateConnectionStateAction));
+
+    Backend.connectToPool(reconnectPool.pool_id, key, reconnectPool.reauth);
 });
 
 listen(ADD_POOL_NODE_EVENT, (event) => {

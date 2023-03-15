@@ -51,11 +51,11 @@ export function PoolContainerView() {
         }
 
         // TEMP 
-        let displayName = searchParams.get("displayName");
-        if (displayName == null) {
-            navigate('/join-pool?poolid=' + poolID);
-            return;
-        }
+        // let displayName = searchParams.get("displayName");
+        // if (displayName == null) {
+        //     navigate('/join-pool?poolid=' + poolID);
+        //     return;
+        // }
         let poolInfo: PoolInfo = {
             poolId: poolID,
             poolName: poolID,
@@ -70,7 +70,7 @@ export function PoolContainerView() {
         for (const pool of pools) {
             if (pool.poolID == poolID) {
                 setPoolKey(pool.key);
-                Backend.connectToPool(poolID, poolKey, displayName);
+                Backend.connectToPool(poolID, poolKey);
                 return;
             }
         }

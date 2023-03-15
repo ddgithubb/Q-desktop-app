@@ -3,20 +3,23 @@ use std::{fs::create_dir, path::PathBuf};
 use log::info;
 use parking_lot::Mutex;
 
-use crate::{store::store::StoreDataType, GLOBAL_APP_HANDLE};
+use crate::{ipc::IPCInitProfile, store::store::StoreDataType, GLOBAL_APP_HANDLE};
 
 use super::{
-    file_store::FileStore, store::Store, user_store::UserStore, setting_store::SettingStore,
+    auth_store::AuthStore, file_store::FileStore, setting_store::SettingStore, store::Store,
+    user_store::UserStore,
 };
 
 pub const USER_STORE_NAME: &'static str = "user";
 pub const FILE_STORE_NAME: &'static str = "file";
 pub const SETTING_STORE_NAME: &'static str = "setting";
+pub const AUTH_STORE_NAME: &'static str = "auth";
 
 pub struct StoreManager {
     pub(super) user_store: Mutex<Store<UserStore>>,
     pub(super) file_store: Mutex<Store<FileStore>>,
     pub(super) setting_store: Mutex<Store<SettingStore>>,
+    pub(super) auth_store: Mutex<Store<AuthStore>>,
 }
 
 impl StoreManager {
@@ -35,6 +38,8 @@ impl StoreManager {
             Store::open(FILE_STORE_NAME.to_string(), StoreDataType::JSON);
         let setting_store: Store<SettingStore> =
             Store::open(SETTING_STORE_NAME.to_string(), StoreDataType::JSON);
+        let auth_store: Store<AuthStore> =
+            Store::open(AUTH_STORE_NAME.to_string(), StoreDataType::Binary);
 
         file_store.init();
 
@@ -42,6 +47,16 @@ impl StoreManager {
             user_store: Mutex::new(user_store),
             file_store: Mutex::new(file_store),
             setting_store: Mutex::new(setting_store),
+            auth_store: Mutex::new(auth_store),
+        }
+    }
+
+    pub fn ipc_init_profile(&self) -> IPCInitProfile {
+        let user_store = self.user_store.lock();
+        IPCInitProfile {
+            registered: user_store.registered,
+            user_info: user_store.user_info.clone(),
+            device: user_store.device.clone(),
         }
     }
 

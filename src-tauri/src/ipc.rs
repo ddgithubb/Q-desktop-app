@@ -18,6 +18,7 @@ pub struct IPCStateUpdate {
 
 #[derive(Clone, Serialize)]
 pub struct IPCInitProfile {
+    pub registered: bool,
     pub user_info: PoolUserInfo,
     pub device: PoolDeviceInfo,
 }
@@ -38,6 +39,7 @@ pub struct IPCInitPool {
 #[derive(Clone, Serialize)]
 pub struct IPCReconnectPool {
     pub pool_id: String,
+    pub reauth: bool,
 }
 
 #[derive(Clone, Serialize)]

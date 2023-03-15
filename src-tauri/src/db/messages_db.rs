@@ -18,7 +18,7 @@ use crate::{
 };
 
 // const TEMP_MESSAGES: bool = !PRODUCTION_MODE;
-const TEMP_MESSAGES: bool = false;
+const TEMP_MESSAGES: bool = true;
 
 pub struct MessagesDB {
     pool_messages: Mutex<HashMap<String, MessagesDBInternal>>, // pool_id -> internal
@@ -154,7 +154,7 @@ impl MessagesDBInternal {
         let mut chunk_number = self.current_chunk_number;
         loop {
             let mut chunk = self.process_chunk(chunk_number);
-            println!("chunk number {} chunk len {}", chunk_number, chunk.len());
+            log::debug!("chunk number {} chunk len {}", chunk_number, chunk.len());
             chunk.append(&mut msgs);
             msgs = chunk;
 
@@ -168,6 +168,8 @@ impl MessagesDBInternal {
             }
             chunk_number -= 1;
         }
+
+        println!("{:?}", msgs);
 
         msgs
     }

@@ -1,0 +1,23 @@
+.text-input {
+    padding: 10px;
+    font-size: 14px;
+    margin-bottom: 10px;
+    width: 200px;
+}
+
+.form-button {
+    padding: 10px;
+    width: 100%;
+    margin-top: 20px;
+    font-size: 14px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--light-color);
+    background-color: var(--main-color);
+}
+
+.form-button:hover {
+    background-color: var(--main-color-light)
+}

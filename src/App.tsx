@@ -5,11 +5,15 @@ import { PoolContainerView } from './views/pool/PoolView'
 import { Pools } from './views/pool/Pools'
 import { JoinPool } from './views/static/JoinPool'
 import { UnsupportedPage } from './views/static/UnsupportedPage'
+import { useSelector } from 'react-redux'
+import { GlobalState } from './store/store'
+import { Register } from './views/auth/Register'
 
 function App() {
 
   const [ gateOpen, setGateOpen ] = useState<boolean>(false);
   const [ unsupportedNAT, setUnsupported ] = useState<boolean>(false);
+  const registered = useSelector((globalState: GlobalState) => globalState.profile.registered);
 
   useEffect(() => {
     let initFunc = async () => {
@@ -22,7 +26,13 @@ function App() {
     gateOpen ? (
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={ <Pools /> } />
+          <Route path="/" element={
+            registered ? (
+              <Pools />
+            ) : (
+              <Register />
+            )
+          } />
           <Route path="/join-pool" element={ <JoinPool /> }/> 
           <Route path="/pool" element={ <Pools /> } />
           <Route path="/pool/:poolID" element={ <PoolContainerView /> } />

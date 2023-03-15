@@ -3,12 +3,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface SettingState {
 }
 
-export interface StorageSettings {
-}
-
 const initialState: SettingState = {
-    storageSettings: {
-    }
 }
 
 const settingSlice = createSlice({

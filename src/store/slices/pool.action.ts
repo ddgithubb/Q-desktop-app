@@ -1,4 +1,4 @@
-import { IPCInitPool, IPCPoolMessageHistory, IPCSavedPoolData } from "../../backend/backend.model";
+import { IPCInitPool, IPCPoolMessageHistory, IPCSavedPoolData } from "../../backend/ipc";
 import { Pool, PoolConnectionState, DownloadProgressStatus } from "../../types/pool.model";
 import { PoolMessage, PoolFileInfo, PoolFileSeeders } from "../../types/pool.v1";
 import { PoolInfo, PoolUserInfo } from "../../types/sync_server.v1";

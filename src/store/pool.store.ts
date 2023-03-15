@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { IPCFileDownloadProgress } from "../backend/backend.model";
+import { IPCFileDownloadProgress } from "../backend/ipc";
 
 export class PoolStoreClass {
     

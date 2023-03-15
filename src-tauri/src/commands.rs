@@ -1,10 +1,19 @@
 use crate::{
-    events::latest_pool_messages_event, poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCPoolMessageHistory, MESSAGES_DB,
+    events::{latest_pool_messages_event, init_profile_event}, poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCPoolMessageHistory, MESSAGES_DB, sspb::{PoolDeviceInfo, PoolUserInfo},
 };
 
 #[tauri::command]
-pub async fn connect_to_pool(pool_id: String, display_name: String) {
-    STORE_MANAGER._set_display_name(display_name);
+pub fn register_device(user_info: PoolUserInfo, device_info: PoolDeviceInfo) {
+    STORE_MANAGER.new_profile(user_info, device_info);
+    init_profile_event();
+}
+
+#[tauri::command]
+pub async fn connect_to_pool(pool_id: String, auth_token: String) {
+    if !auth_token.is_empty() {
+        STORE_MANAGER.set_auth_token(auth_token);
+    }
+
     latest_pool_messages_event(&pool_id);
 
     POOL_MANAGER.connect_to_pool(pool_id).await;

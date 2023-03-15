@@ -12,6 +12,7 @@ export interface IPCStateUpdate {
 }
 
 export interface IPCInitProfile {
+    registered: boolean,
     user_info: PoolUserInfo,
     device: PoolDeviceInfo,
 }
@@ -28,11 +29,12 @@ export interface IPCPoolNode {
 export interface IPCInitPool {
     node_id: string,
     pool_info: PoolInfo,
-    init_nodes: IPCPoolNode[], 
+    init_nodes: IPCPoolNode[],
 }
 
 export interface IPCReconnectPool {
     pool_id: string,
+    reauth: boolean,
 }
 
 export interface IPCAddPoolNode {

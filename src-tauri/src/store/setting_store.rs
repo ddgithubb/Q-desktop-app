@@ -1,5 +1,3 @@
-// idea is that we can easily transfer setting data to other devices if needed
-
 use serde::{Deserialize, Serialize};
 
 use crate::config::{LATEST_MESSAGES_SIZE, MESSAGE_VIEWPORT_SIZE, MIN_MESSAGE_HIEGHT};
@@ -11,6 +9,7 @@ use super::store_manager::StoreManager;
 pub struct SettingStore {
     #[serde(skip)]
     monitor_height: u32,
+    #[serde(skip)]
     max_messages_render: usize,
 }
 

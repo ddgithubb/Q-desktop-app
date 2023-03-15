@@ -4,7 +4,7 @@ use log::info;
 use tokio::sync::RwLock as AsyncRwLock;
 
 use crate::{
-    events::{complete_pool_file_download_event, reconnect_pool_event},
+    events::{complete_pool_file_download_event},
     poolpb::PoolFileInfo,
 };
 
@@ -75,8 +75,9 @@ impl PoolManager {
 
         let mut active_pools = self.active_pools.write().await;
         if let Some(existing_pool) = active_pools.insert(pool_id, pool) {
-            reconnect_pool_event(&existing_pool.pool_state.pool_id);
-            existing_pool.clean().await;
+            tokio::spawn(async move {
+                existing_pool.clean().await;
+            });
         }
     }
 

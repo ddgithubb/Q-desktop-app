@@ -1,11 +1,11 @@
 use crate::{
     events::{
-        add_pool_file_offers_event, init_pool_file_seeders_event, remove_pool_file_offer_event,
+        add_pool_file_offers_event, init_pool_file_seeders_event, remove_pool_file_offer_event, reconnect_pool_event,
     },
     poolpb::{PoolFileInfo, PoolFileSeeders},
     sspb::PoolBasicNode,
     store::user_store::BasicUserInfo,
-    POOL_MANAGER, STORE_MANAGER,
+    STORE_MANAGER,
 };
 
 use super::pool_node_position::PoolNodePosition;
@@ -41,6 +41,7 @@ pub(super) struct PoolState {
     pub(super) node_position: ArcSwap<PoolNodePosition>,
 
     reconnect: AtomicBool,
+    auth_error: AtomicBool,
     closed: AtomicBool,
     close_chan_tx: ArcSwapOption<Sender<()>>,
     close_chan_rx: Receiver<()>,
@@ -55,7 +56,7 @@ pub(super) struct PoolState {
 impl PoolState {
     pub(super) fn init(pool_id: String) -> Self {
         let (close_chan_tx, close_chan_rx) = flume::bounded::<()>(1);
-        let user = STORE_MANAGER.user_info();
+        let user = STORE_MANAGER.basic_user_info();
         let node_id = user.device.device_id.clone();
         let pool_state = PoolState {
             pool_id,
@@ -64,6 +65,7 @@ impl PoolState {
             node_id,
             node_position: ArcSwap::new(Arc::new(Default::default())),
             reconnect: AtomicBool::new(true),
+            auth_error: AtomicBool::new(false),
             closed: AtomicBool::new(false),
             close_chan_tx: ArcSwapOption::new(Some(Arc::new(close_chan_tx))),
             close_chan_rx,
@@ -85,6 +87,10 @@ impl PoolState {
         self.reconnect.store(false, Ordering::SeqCst);
     }
 
+    pub(super) fn set_auth_error(&self) {
+        self.auth_error.store(true, Ordering::SeqCst);
+    }
+
     pub(super) fn reconnect(&self) -> bool {
         self.reconnect.load(Ordering::SeqCst)
     }
@@ -95,10 +101,9 @@ impl PoolState {
             let close_chan_tx = self.close_chan_tx.swap(None);
             if let Some(_close_chan_tx) = close_chan_tx {
                 if self.reconnect() {
-                    let pool_id = self.pool_id.clone();
-                    tokio::spawn(async move {
-                        POOL_MANAGER.connect_to_pool(pool_id).await;
-                    });
+                    let auth_error = self.auth_error.load(Ordering::SeqCst);
+                    let pool_id = self.pool_id.clone(); 
+                    reconnect_pool_event(&pool_id, auth_error);
                 }
                 // let _ = _close_chan_tx.try_send(()); // will be dropped anyways
                 return true;

@@ -15,6 +15,7 @@ pub struct BasicUserInfo {
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserStore {
+    pub(super) registered: bool,
     pub(super) user_info: PoolUserInfo,
     pub(super) device: PoolDeviceInfo,
     pub(super) pools: HashMap<String, PoolInfo>, // pool_id -> pool_info
@@ -23,9 +24,15 @@ pub struct UserStore {
 impl StoreManager {
     pub fn new_profile(&self, user_info: PoolUserInfo, device: PoolDeviceInfo) {
         let mut user_store = self.user_store.lock();
+        user_store.registered = true;
         user_store.user_info = user_info;
         user_store.device = device;
         user_store.update();
+    }
+
+    pub fn is_registered(&self) -> bool {
+        let user_store = self.user_store.lock();
+        user_store.registered
     }
 
     pub fn update_pool(&self, pool_id: String, pool_info: PoolInfo) {
@@ -62,13 +69,18 @@ impl StoreManager {
         }
     }
 
-    pub fn user_info(&self) -> BasicUserInfo {
+    pub fn basic_user_info(&self) -> BasicUserInfo {
         let user_store = self.user_store.lock();
         BasicUserInfo {
             user_id: user_store.user_info.user_id.clone(),
             display_name: user_store.user_info.display_name.clone(),
             device: user_store.device.clone(),
         }
+    }
+
+    pub fn device_id(&self) -> String {
+        let user_store = self.user_store.lock();
+        user_store.device.device_id.clone()
     }
 
     pub fn _set_display_name(&self, display_name: String) {

@@ -5,8 +5,11 @@ import { getStoreState, store } from "../store/store";
 import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
 import { PoolFileInfo } from "../types/pool.v1";
 import { open } from '@tauri-apps/api/dialog';
-import { IPCPoolMessageHistory } from "./backend.model";
+import { IPCPoolMessageHistory } from "./ipc";
 import sanitizeHTML from "sanitize-html";
+import { AuthenticateDevice } from "../auth/auth";
+import { PoolDeviceInfo, PoolUserInfo } from "../types/sync_server.v1";
+import { profileAction, ProfileState } from "../store/slices/profile.slice";
 
 const BR_TAG: string = "<br />";
 
@@ -20,7 +23,14 @@ export class BackendCommands {
         return this.poolKeyMap.get(poolId);
     }
 
-    connectToPool(poolId: string, poolKey: number, displayName: string) {
+    registerDevice(userInfo: PoolUserInfo, deviceInfo: PoolDeviceInfo) {
+        invoke('register_device', {
+            userInfo,
+            deviceInfo,
+        });
+    }
+
+    async connectToPool(poolId: string, poolKey: number, authenticate: boolean = false) {
         this.poolKeyMap.set(poolId, poolKey);
 
         store.dispatch(poolAction.updateConnectionState({
@@ -28,7 +38,17 @@ export class BackendCommands {
             state: PoolConnectionState.CONNECTING,
         } as UpdateConnectionStateAction));
 
-        invoke('connect_to_pool', { poolId, displayName });
+        let authToken = "";
+        if (authenticate) {
+            try {
+                authToken = await AuthenticateDevice();
+            } catch(e) {
+                this.connectToPool(poolId, poolKey, authenticate);
+                return;
+            }
+        }
+
+        invoke('connect_to_pool', { poolId, authToken });
     }
 
     disconnectFromPool(poolId: string) {

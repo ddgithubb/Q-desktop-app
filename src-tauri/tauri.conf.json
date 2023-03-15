@@ -13,6 +13,10 @@
     "allowlist": {
       "dialog": {
         "open": true
+      },
+      "http":{
+        "request": true,
+        "scope": ["http://**", "https://**"]
       }
     },
     "bundle": {

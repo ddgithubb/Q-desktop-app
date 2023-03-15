@@ -14,8 +14,8 @@ use crate::config::{
     sync_server_connect_endpoint, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_TIMEOUT_SECONDS,
 };
 use crate::events::{
-    add_pool_node_event, add_pool_user_event, init_pool_event,
-    remove_pool_node_event, remove_pool_user_event,
+    add_pool_node_event, add_pool_user_event, init_pool_event, remove_pool_node_event,
+    remove_pool_user_event,
 };
 use crate::ipc::{IPCInitPool, IPCPoolNode};
 use crate::sspb::ss_message::{
@@ -75,29 +75,8 @@ impl SyncServerClient {
             None => return,
         };
 
-        // TEMP
-        // let _temp_my_user_info = pool_info.users[0].clone();
-        // STORE_MANAGER.new_profile(
-        //     _temp_my_user_info.clone(),
-        //     _temp_my_user_info.devices[0].clone(),
-        // );
-
-        // unsafe {
-        //     let pool_state_const = &*self.pool_state as *const PoolState;
-        //     let pool_state_ptr = pool_state_const as *mut PoolState;
-        //     (*pool_state_ptr).user = STORE_MANAGER.user_info();
-        //     (*pool_state_ptr).node_id = STORE_MANAGER.user_info().device.device_id;
-        // }
-
         log::info!("nodeID: {}", self.pool_state.node_id);
         log::info!("userID: {}", self.pool_state.user.user_id);
-
-        // init_profile_event(IPCInitProfile {
-        //     device: _temp_my_user_info.devices[0].clone(),
-        //     user_info: _temp_my_user_info,
-        // });
-
-        // TEMP
 
         STORE_MANAGER.update_pool(self.pool_state.pool_id.clone(), pool_info.clone());
 
@@ -173,10 +152,13 @@ impl SyncServerClient {
     }
 
     async fn sync_server_loop(self: Arc<Self>) {
+        let device_id = STORE_MANAGER.device_id();
         let url = url::Url::parse(
-            sync_server_connect_endpoint(self.pool_state.pool_id.as_str()).as_str(),
+            sync_server_connect_endpoint(self.pool_state.pool_id.as_str(), device_id.clone())
+                .as_str(),
         )
         .unwrap();
+
         let ws_conn = match connect_ws_async(url).await {
             Ok((ws_conn, _)) => ws_conn,
             Err(_) => {
@@ -192,19 +174,31 @@ impl SyncServerClient {
             *lock = Some(ws_write);
         }
 
+        let auth_token = STORE_MANAGER.auth_token();
+        self.send_ws_conn(auth_token.into_bytes()).await;
+
         self.clone().start_heartbeat_interval();
 
+        let mut auth_err = true;
         use tungstenite::Error;
         loop {
             match ws_read.next().await {
                 Some(Ok(WSMessage::Binary(buf))) => {
                     if let Ok(ss_msg) = SSMessage::decode(&*buf) {
                         if ss_msg.op() == SSMessageOp::Close {
+                            if auth_err {
+                                log::warn!(
+                                    "sync_server_loop : AUTH_ERR with token {}",
+                                    STORE_MANAGER.auth_token()
+                                );
+                                self.pool_state.set_auth_error()
+                            }
                             self.close().await;
                             continue;
                         }
 
                         if ss_msg.op() == SSMessageOp::Heartbeat {
+                            auth_err = false;
                             self.heartbeat_timeout.store(false, Ordering::SeqCst);
                             continue;
                         }

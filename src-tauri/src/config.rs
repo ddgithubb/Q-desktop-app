@@ -1,7 +1,5 @@
 use std::time::Duration;
 
-use crate::STORE_MANAGER;
-
 pub const PRODUCTION_MODE: bool = false;
 
 pub const CHUNK_SIZE: usize = 32 * 1024;
@@ -75,12 +73,12 @@ fn sync_server_api_host(path: String) -> String {
     )
 }
 
-pub fn sync_server_connect_endpoint(pool_id: &str) -> String {
-    sync_server_ws_host(format!("/ss/{}/connect?poolid={}&displayname={}&userid={}",
+pub fn sync_server_connect_endpoint(pool_id: &str, device_id: String) -> String {
+    sync_server_ws_host(format!("/ss/{}/connect?poolid={}&deviceid={}&test={}",
         SYNC_SERVER_VERSION,
         pool_id,
-        STORE_MANAGER._display_name(),
-        STORE_MANAGER._user_id(),
+        device_id,
+        if PRODUCTION_MODE { "false" } else { "true" }
     ))
 }
 

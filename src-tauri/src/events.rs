@@ -3,7 +3,7 @@ use tauri::Manager;
 use crate::{
     ipc::{
         IPCAddPoolFileOffers, IPCAddPoolNode, IPCAddPoolUser, IPCAppendPoolMessage,
-        IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCInitProfile,
+        IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders,
         IPCLatestPoolMessages, IPCPoolNode, IPCReconnectPool, IPCRemovePoolFileOffer,
         IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate,
     },
@@ -38,9 +38,9 @@ pub fn state_update_event(state: IPCStateUpdate) {
     }
 }
 
-pub fn init_profile_event(profile: IPCInitProfile) {
+pub fn init_profile_event() {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
-        let _ = app_handle.emit_all(INIT_PROFILE_EVENT, profile);
+        let _ = app_handle.emit_all(INIT_PROFILE_EVENT, STORE_MANAGER.ipc_init_profile());
     }
 }
 
@@ -50,12 +50,13 @@ pub fn init_pool_event(init_pool: IPCInitPool) {
     }
 }
 
-pub fn reconnect_pool_event(pool_id: &String) {
+pub fn reconnect_pool_event(pool_id: &String, reauth: bool) {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
         let _ = app_handle.emit_all(
             RECONNECT_POOL_EVENT,
             IPCReconnectPool {
                 pool_id: pool_id.clone(),
+                reauth,
             },
         );
     }
