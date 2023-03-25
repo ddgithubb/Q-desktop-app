@@ -56,14 +56,14 @@ export function PoolContainerView() {
         //     navigate('/join-pool?poolid=' + poolID);
         //     return;
         // }
-        let poolInfo: PoolInfo = {
-            poolId: poolID,
-            poolName: poolID,
-            users: []
-        };
-        store.dispatch(poolAction.setPools({
-            poolInfos: [poolInfo],
-        }));
+        // let poolInfo: PoolInfo = {
+        //     poolId: poolID,
+        //     poolName: poolID,
+        //     users: []
+        // };
+        // store.dispatch(poolAction.setPools({
+        //     poolInfos: [poolInfo],
+        // }));
         // TEMP
 
         let pools = getStoreState().pool.pools;

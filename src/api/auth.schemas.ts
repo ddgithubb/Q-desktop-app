@@ -14,6 +14,10 @@ export interface FinishRegisterRequest {
 	CredentialData: Credential;
 }
 
+export interface FinishRegisterResponse {
+	Token: string;
+}
+
 export interface BeginAuthenticateRequest {
 	UserID: string;
 	DeviceID: string;

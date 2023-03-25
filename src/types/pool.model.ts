@@ -1,5 +1,5 @@
 import { PoolFileInfo, PoolFileSeeders, PoolMessage } from "./pool.v1";
-import { PoolUserInfo } from "./sync_server.v1";
+import { PoolDeviceInfo, PoolUserInfo } from "./sync_server.v1";
 
 export const NODE_ID_LENGTH = 10;
 export const MESSAGE_ID_LENGTH = 21;
@@ -58,6 +58,7 @@ export interface FeedMessage {
 export interface PoolNodeStatus {
     nodeID: string,
     userID: string,
+    device: PoolDeviceInfo,
     status: NodeStatus;
     created: number;
 }

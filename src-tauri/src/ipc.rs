@@ -17,16 +17,18 @@ pub struct IPCStateUpdate {
 }
 
 #[derive(Clone, Serialize)]
-pub struct IPCInitProfile {
+pub struct IPCInitApp {
     pub registered: bool,
     pub user_info: PoolUserInfo,
     pub device: PoolDeviceInfo,
+    pub pools: Vec<PoolInfo>,
 }
 
 #[derive(Clone, Serialize)]
 pub struct IPCPoolNode {
     pub node_id: String,
     pub user_id: String,
+    pub device: PoolDeviceInfo,
 }
 
 #[derive(Clone, Serialize)]

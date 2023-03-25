@@ -1,15 +1,15 @@
 import { listen } from '@tauri-apps/api/event';
-import { AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, LatestMessagesAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction } from '../store/slices/pool.action';
+import { AddFileOffersAction, AddNodeAction, AppendMessageAction, CompleteDownloadAction, InitFileSeedersAction, LatestMessagesAction, InitPoolAction, RemoveDownloadAction, RemoveFileOfferAction, RemoveNodeAction, RemoveUserAction, UpdateConnectionStateAction, AddUserAction, SetPoolsAction } from '../store/slices/pool.action';
 import { poolAction, setMaxFeedSize } from '../store/slices/pool.slice';
 import { profileAction, ProfileState } from '../store/slices/profile.slice';
 import { PoolStore, store } from '../store/store';
 import { PoolConnectionState } from '../types/pool.model';
-import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCInitProfile, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate } from './ipc';
+import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate, IPCInitApp } from './ipc';
 import { Backend } from './global';
 
 const STATE_UPDATE_EVENT: string = "state-update";
 
-const INIT_PROFILE_EVENT: string = "init-profile";
+const INIT_APP_EVENT: string = "init-app";
 
 const INIT_POOL_EVENT: string = "init-pool";
 const RECONNECT_POOL_EVENT: string = "reconnect-pool";
@@ -32,14 +32,19 @@ listen(STATE_UPDATE_EVENT, (event) => {
     PoolStore.updateDownloadProgress(state.file_downloads_progress);
 });
 
-listen(INIT_PROFILE_EVENT, (event) => {
-    let initProfile: IPCInitProfile = event.payload as any;
+listen(INIT_APP_EVENT, (event) => {
+    let initApp: IPCInitApp = event.payload as any;
     let profileState: ProfileState = {
-        registered: initProfile.registered,
-        userInfo: initProfile.user_info,
-        device: initProfile.device,
+        registered: initApp.registered,
+        userInfo: initApp.user_info,
+        device: initApp.device,
     };
     store.dispatch(profileAction.initProfile(profileState));
+
+    let setPoolsAction: SetPoolsAction = {
+        poolInfos: initApp.pools,
+    }
+    store.dispatch(poolAction.setPools(setPoolsAction));
 });
 
 listen(INIT_POOL_EVENT, (event) => {
@@ -75,8 +80,7 @@ listen(ADD_POOL_NODE_EVENT, (event) => {
     
     let addNodeAction: AddNodeAction = {
         key,
-        nodeID: addPoolNode.node.node_id,
-        userID: addPoolNode.node.user_id,
+        node: addPoolNode.node,
     };
     store.dispatch(poolAction.addNode(addNodeAction));
 });

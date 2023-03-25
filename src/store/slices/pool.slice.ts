@@ -1,8 +1,9 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { Pool, PoolConnectionState, DownloadProgressStatus, FeedMessage, NodeStatus, UserStatus } from "../../types/pool.model";
 import { PoolFileInfo, PoolMessage } from "../../types/pool.v1";
+import { PoolDeviceInfo } from "../../types/sync_server.v1";
 import { PoolStore } from "../store";
-import { PoolsState, PoolAction, UpdateConnectionStateAction, AddUserAction, RemoveUserAction, LatestMessagesAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction, SetPoolsAction, AddMessageHistoryAction } from "./pool.action";
+import { PoolsState, PoolAction, UpdateConnectionStateAction, AddUserAction, RemoveUserAction, LatestMessagesAction, AppendMessageAction, AddNodeAction, RemoveNodeAction, RemoveFileOfferAction, AddDownloadAction, RemoveDownloadAction, InitPoolAction, InitFileSeedersAction, AddFileOffersAction, UpdateDownloadStatus, CompleteDownloadAction, ClearPoolAction, SetPoolsAction, AddMessageHistoryAction, AddPoolAction } from "./pool.action";
 
 // const MAX_FEED_SIZE = 100;
 // const MAX_FEED_SIZE = 50;
@@ -39,10 +40,31 @@ const poolSlice = createSlice({
                 };
                 state.pools.push(pool);
 
-                for (const user of pool.users) {
-                    PoolStore.setDisplayName(user.userId, user.displayName);
-                }
+                PoolStore.setDisplayNames(pool.users);
             }
+        },
+        addPool(state: PoolsState, action: PayloadAction<AddPoolAction>) {
+            let poolInfo = action.payload.poolInfo;
+            let pool: Pool = {
+                poolID: poolInfo.poolId,
+                poolName: poolInfo.poolName,
+                key: state.pools.length,
+                nodeID: "",
+                connectionState: PoolConnectionState.CLOSED,
+                users: poolInfo.users,
+                fileOffers: [],
+                availableFiles: [],
+                downloadQueue: [],
+                feed: [],
+            };
+            state.pools.push(pool);
+
+            PoolStore.setDisplayNames(pool.users);
+        },
+        removePool(state: PoolsState, action: PayloadAction<PoolAction>) {
+            let pool = getPool(state, action);
+            // Remove pool
+            PoolStore.clearActiveDevices(pool.poolID);
         },
         initPool(state: PoolsState, action: PayloadAction<InitPoolAction>) {
             let pool = getPool(state, action);
@@ -52,12 +74,9 @@ const poolSlice = createSlice({
             pool.nodeID = initPool.node_id;
             pool.users = initPool.pool_info.users;
 
-            PoolStore.clearActiveDevices(pool.poolID);
+            PoolStore.setDisplayNames(pool.users);
 
-            for (const user of pool.users) {
-                PoolStore.setDisplayName(user.userId, user.displayName);
-            }
-            
+            PoolStore.clearActiveDevices(pool.poolID);
             for (const node of initPool.init_nodes) {
                 PoolStore.addActiveDevice(pool.poolID, node.node_id, node.user_id);
             }
@@ -80,16 +99,26 @@ const poolSlice = createSlice({
         addUser(state: PoolsState, action: PayloadAction<AddUserAction>) {
             let pool = getPool(state, action);
             let userInfo = action.payload.userInfo;
-
-            addToFeed(pool.feed, {
-                userStatus: {
-                    userID: userInfo.userId,
-                    status: UserStatus.JOINED,
-                    created: Date.now(),
+            let newUser = true;
+            for (let i = 0; i < pool.users.length; i++) {
+                if (pool.users[i].userId == userInfo.userId) {
+                    pool.users[i] = userInfo
+                    newUser = false;
+                    break;
                 }
-            });
+            }
 
-            pool.users.push(userInfo);
+            if (newUser) {
+                addToFeed(pool.feed, {
+                    userStatus: {
+                        userID: userInfo.userId,
+                        status: UserStatus.JOINED,
+                        created: Date.now(),
+                    }
+                });
+    
+                pool.users.push(userInfo);
+            }
 
             PoolStore.setDisplayName(userInfo.userId, userInfo.displayName);
         },
@@ -114,13 +143,31 @@ const poolSlice = createSlice({
         },
         addNode(state: PoolsState, action: PayloadAction<AddNodeAction>) {
             let pool = getPool(state, action);
-            let nodeID = action.payload.nodeID;
-            let userID = action.payload.userID;
+            let nodeID = action.payload.node.node_id;
+            let userID = action.payload.node.user_id;
+            let device = action.payload.node.device;
+
+            for (const user of pool.users) {
+                if (user.userId == userID) {
+                    let found = false;
+                    for (const d of user.devices) {
+                        if (d.deviceId == device.deviceId) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        user.devices.push(device);
+                    }
+                    break;
+                }
+            }
             
             addToFeed(pool.feed, {
                 nodeStatus: {
                     nodeID,
                     userID,
+                    device, 
                     status: NodeStatus.ACTIVE,
                     created: Date.now(),
                 },
@@ -134,10 +181,28 @@ const poolSlice = createSlice({
             let userID = PoolStore.getActiveDeviceUserID(pool.poolID, nodeID);
             if (!userID) return;
 
+            let device: PoolDeviceInfo | undefined = undefined;
+            for (const user of pool.users) {
+                if (user.userId == userID) {
+                    for (const d of user.devices) {
+                        if (d.deviceId == nodeID) {
+                            device = d                            
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            if (!device) {
+                return;
+            }
+
             addToFeed(pool.feed, {
                 nodeStatus: {
                     nodeID: action.payload.nodeID,
                     userID: userID,
+                    device: device,
                     status: NodeStatus.INACTIVE,
                     created: Date.now(),
                 },

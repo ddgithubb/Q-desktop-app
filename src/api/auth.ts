@@ -2,29 +2,27 @@ import { fetch, Body, ResponseType } from '@tauri-apps/api/http';
 import { Backend } from '../backend/global';
 import { getStoreState } from '../store/store';
 import { DeviceType, PoolDeviceInfo, PoolUserInfo } from '../types/sync_server.v1';
-import { BeginAuthenticateRequest, BeginAuthenticateResponse, BeginRegisterRequest, BeginRegisterResponse, FinishAuthenticateRequest, FinishAuthenticateResponse, FinishRegisterRequest } from './schemas';
+import { BeginAuthenticateRequest, BeginAuthenticateResponse, BeginRegisterRequest, BeginRegisterResponse, FinishAuthenticateRequest, FinishAuthenticateResponse, FinishRegisterRequest, FinishRegisterResponse } from './auth.schemas';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+import { API_ENDPOINT, fetchPostJSON, setAuthToken } from './api';
 
 // TEMP
-const AUTH_ENDPOINT = "http://192.168.0.18:80/auth";
+const AUTH_ENDPOINT = API_ENDPOINT + "/auth";
 const DEVICE_TYPE: DeviceType = DeviceType.DESKTOP;
 
-export async function RegisterNewUser(displayName: string, deviceName: string) {
+function fetchPostJSONAuth(path: string, body: any, responseType: ResponseType = ResponseType.JSON) {
+    return fetchPostJSON(AUTH_ENDPOINT + path, body, responseType);
+}
+
+export async function RegisterNewUser(displayName: string, deviceName: string): Promise<[PoolUserInfo, PoolDeviceInfo]> {
     let beginRegisterRequest: BeginRegisterRequest = {
         DisplayName: displayName,
     };
 
-    let res = await fetch(AUTH_ENDPOINT + "/begin-register", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: Body.json(beginRegisterRequest),
-        responseType: ResponseType.JSON,
-    });
+    let res = await fetchPostJSONAuth("/begin-register", beginRegisterRequest);
 
     if (!res.ok) {
-        throw null;
+        throw "Failed to begin registration";
     }
 
     let beginRegisterResponse: BeginRegisterResponse = res.data as any;
@@ -33,7 +31,7 @@ export async function RegisterNewUser(displayName: string, deviceName: string) {
     let credential = await startRegistration(beginRegisterResponse.CredentialCreation.publicKey as any)
 
     if (!credential) {
-        throw null;
+        throw "Failed to get credential";
     }
 
     let deviceInfo: PoolDeviceInfo = {
@@ -49,18 +47,14 @@ export async function RegisterNewUser(displayName: string, deviceName: string) {
         CredentialData: credential,
     }
 
-    res = await fetch(AUTH_ENDPOINT + "/finish-register", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: Body.json(finishRegisterRequest),
-        responseType: ResponseType.Text,
-    });
+    res = await fetchPostJSONAuth("/finish-register", finishRegisterRequest);
 
     if (!res.ok) {
-        throw null;
+        throw "Failed to finish registration";
     }
+
+    let finishRegisterResponse: FinishRegisterResponse = res.data as any;
+    setAuthToken(finishRegisterResponse.Token);
 
     let userInfo: PoolUserInfo = {
         userId: userID,
@@ -68,10 +62,10 @@ export async function RegisterNewUser(displayName: string, deviceName: string) {
         devices: [deviceInfo],
     };
 
-    Backend.registerDevice(userInfo, deviceInfo);
+    return [userInfo, deviceInfo];
 }
 
-export async function AuthenticateDevice(): Promise<string> {
+export async function AuthenticateDevice() {
     let profile = getStoreState().profile;
     let userID = profile.userInfo.userId;
     let deviceID = profile.device.deviceId;
@@ -81,17 +75,10 @@ export async function AuthenticateDevice(): Promise<string> {
         DeviceID: deviceID,
     };
 
-    let res = await fetch(AUTH_ENDPOINT + "/begin-auth", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: Body.json(beginAuthenticateRequest),
-        responseType: ResponseType.JSON,
-    });
+    let res = await fetchPostJSONAuth("/begin-auth", beginAuthenticateRequest);
 
     if (!res.ok) {
-        throw null;
+        throw "Failed to begin authentication";
     }
 
     let beginAuthenticateResponse: BeginAuthenticateResponse = res.data as any;
@@ -99,7 +86,7 @@ export async function AuthenticateDevice(): Promise<string> {
     let credential = await startAuthentication(beginAuthenticateResponse.CredentialAssertion.publicKey as any);
 
     if (!credential) {
-        throw null;
+        throw "Failed to get credential";
     }
 
     credential.response.userHandle = undefined;
@@ -110,21 +97,14 @@ export async function AuthenticateDevice(): Promise<string> {
         CredentialData: credential,
     };
 
-    res = await fetch(AUTH_ENDPOINT + "/finish-auth", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: Body.json(finishAuthenticateRequest),
-        responseType: ResponseType.JSON,
-    });
+    res = await fetchPostJSONAuth("/finish-auth", finishAuthenticateRequest);
 
     if (!res.ok) {
-        throw null;
+        throw "Failed to finish authentication";
     }
 
     let finishAuthenticateResponse: FinishAuthenticateResponse = res.data as any;
-    return finishAuthenticateResponse.Token
+    setAuthToken(finishAuthenticateResponse.Token);
 }
 
 export async function RegisterNewDevice() {

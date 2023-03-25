@@ -1,21 +1,31 @@
 use crate::{
-    events::{latest_pool_messages_event, init_profile_event}, poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCPoolMessageHistory, MESSAGES_DB, sspb::{PoolDeviceInfo, PoolUserInfo},
+    events::{latest_pool_messages_event, init_app_event}, poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCPoolMessageHistory, MESSAGES_DB, sspb::{PoolDeviceInfo, PoolUserInfo, PoolInfo},
 };
 
 #[tauri::command]
 pub fn register_device(user_info: PoolUserInfo, device_info: PoolDeviceInfo) {
     STORE_MANAGER.new_profile(user_info, device_info);
-    init_profile_event();
+    init_app_event();
 }
 
 #[tauri::command]
-pub async fn connect_to_pool(pool_id: String, auth_token: String) {
-    if !auth_token.is_empty() {
-        STORE_MANAGER.set_auth_token(auth_token);
-    }
+pub fn set_auth_token(auth_token: String) {
+    STORE_MANAGER.set_auth_token(auth_token);
+}
 
+#[tauri::command]
+pub fn add_pool(pool_info: PoolInfo) {
+    STORE_MANAGER.update_pool(pool_info);
+}
+
+#[tauri::command]
+pub fn remove_pool(pool_id: String) {
+    STORE_MANAGER.remove_pool(&pool_id);
+}
+
+#[tauri::command]
+pub async fn connect_to_pool(pool_id: String) {
     latest_pool_messages_event(&pool_id);
-
     POOL_MANAGER.connect_to_pool(pool_id).await;
 }
 

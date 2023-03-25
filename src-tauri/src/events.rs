@@ -14,7 +14,7 @@ use crate::{
 
 const STATE_UPDATE_EVENT: &'static str = "state-update";
 
-const INIT_PROFILE_EVENT: &'static str = "init-profile";
+const INIT_APP_EVENT: &'static str = "init-app";
 
 const INIT_POOL_EVENT: &'static str = "init-pool";
 const RECONNECT_POOL_EVENT: &'static str = "reconnect-pool";
@@ -38,9 +38,9 @@ pub fn state_update_event(state: IPCStateUpdate) {
     }
 }
 
-pub fn init_profile_event() {
+pub fn init_app_event() {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
-        let _ = app_handle.emit_all(INIT_PROFILE_EVENT, STORE_MANAGER.ipc_init_profile());
+        let _ = app_handle.emit_all(INIT_APP_EVENT, STORE_MANAGER.ipc_init_app());
     }
 }
 

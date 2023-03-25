@@ -259,6 +259,7 @@ export interface SSMessage_AddNodeData {
   nodeId: string;
   userId: string;
   path: number[];
+  device: PoolDeviceInfo | undefined;
 }
 
 export interface SSMessage_RemoveNodeData {
@@ -1474,7 +1475,7 @@ export const SSMessage_InitPoolData = {
 };
 
 function createBaseSSMessage_AddNodeData(): SSMessage_AddNodeData {
-  return { nodeId: "", userId: "", path: [] };
+  return { nodeId: "", userId: "", path: [], device: undefined };
 }
 
 export const SSMessage_AddNodeData = {
@@ -1490,6 +1491,9 @@ export const SSMessage_AddNodeData = {
       writer.uint32(v);
     }
     writer.ldelim();
+    if (message.device !== undefined) {
+      PoolDeviceInfo.encode(message.device, writer.uint32(34).fork()).ldelim();
+    }
     return writer;
   },
 
@@ -1516,6 +1520,9 @@ export const SSMessage_AddNodeData = {
             message.path.push(reader.uint32());
           }
           break;
+        case 4:
+          message.device = PoolDeviceInfo.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1529,6 +1536,7 @@ export const SSMessage_AddNodeData = {
       nodeId: isSet(object.nodeId) ? String(object.nodeId) : "",
       userId: isSet(object.userId) ? String(object.userId) : "",
       path: Array.isArray(object?.path) ? object.path.map((e: any) => Number(e)) : [],
+      device: isSet(object.device) ? PoolDeviceInfo.fromJSON(object.device) : undefined,
     };
   },
 
@@ -1541,6 +1549,7 @@ export const SSMessage_AddNodeData = {
     } else {
       obj.path = [];
     }
+    message.device !== undefined && (obj.device = message.device ? PoolDeviceInfo.toJSON(message.device) : undefined);
     return obj;
   },
 
@@ -1549,6 +1558,9 @@ export const SSMessage_AddNodeData = {
     message.nodeId = object.nodeId ?? "";
     message.userId = object.userId ?? "";
     message.path = object.path?.map((e) => e) || [];
+    message.device = (object.device !== undefined && object.device !== null)
+      ? PoolDeviceInfo.fromPartial(object.device)
+      : undefined;
     return message;
   },
 };

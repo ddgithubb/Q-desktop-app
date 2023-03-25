@@ -3,7 +3,7 @@ use std::{fs::create_dir, path::PathBuf};
 use log::info;
 use parking_lot::Mutex;
 
-use crate::{ipc::IPCInitProfile, store::store::StoreDataType, GLOBAL_APP_HANDLE};
+use crate::{store::store::StoreDataType, GLOBAL_APP_HANDLE, ipc::IPCInitApp};
 
 use super::{
     auth_store::AuthStore, file_store::FileStore, setting_store::SettingStore, store::Store,
@@ -51,12 +51,13 @@ impl StoreManager {
         }
     }
 
-    pub fn ipc_init_profile(&self) -> IPCInitProfile {
+    pub fn ipc_init_app(&self) -> IPCInitApp {
         let user_store = self.user_store.lock();
-        IPCInitProfile {
+        IPCInitApp {
             registered: user_store.registered,
             user_info: user_store.user_info.clone(),
             device: user_store.device.clone(),
+            pools: user_store.sorted_pools(),
         }
     }
 

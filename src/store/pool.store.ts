@@ -1,5 +1,6 @@
 import { EventEmitter } from "events";
 import { IPCFileDownloadProgress } from "../backend/ipc";
+import { PoolUserInfo } from "../types/sync_server.v1";
 
 export class PoolStoreClass {
     
@@ -33,6 +34,12 @@ export class PoolStoreClass {
 
     setDisplayName(userID: string, displayName: string) {
         this.displayNameMap.set(userID, displayName);
+    }
+
+    setDisplayNames(poolUsers: PoolUserInfo[]) {
+        for (const user of poolUsers) {
+            this.setDisplayName(user.userId, user.displayName);
+        }
     }
 
     addActiveDevice(poolID: string, deviceID: string, userID: string) {

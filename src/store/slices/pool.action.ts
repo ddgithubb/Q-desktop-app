@@ -1,4 +1,4 @@
-import { IPCInitPool, IPCPoolMessageHistory, IPCSavedPoolData } from "../../backend/ipc";
+import { IPCInitPool, IPCPoolMessageHistory, IPCPoolNode, IPCSavedPoolData } from "../../backend/ipc";
 import { Pool, PoolConnectionState, DownloadProgressStatus } from "../../types/pool.model";
 import { PoolMessage, PoolFileInfo, PoolFileSeeders } from "../../types/pool.v1";
 import { PoolInfo, PoolUserInfo } from "../../types/sync_server.v1";
@@ -13,6 +13,10 @@ export interface PoolAction {
 
 export interface SetPoolsAction {
     poolInfos: PoolInfo[];
+}
+
+export interface AddPoolAction extends PoolAction {
+    poolInfo: PoolInfo;
 }
 
 export interface InitPoolAction extends PoolAction {
@@ -48,8 +52,7 @@ export interface InitFileSeedersAction extends PoolAction {
 }
 
 export interface AddNodeAction extends PoolAction {
-    nodeID: string;
-    userID: string;
+    node: IPCPoolNode;
 }
 
 export interface RemoveNodeAction extends PoolAction {

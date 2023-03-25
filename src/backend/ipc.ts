@@ -11,10 +11,11 @@ export interface IPCStateUpdate {
     file_downloads_progress: IPCFileDownloadProgress[],
 }
 
-export interface IPCInitProfile {
+export interface IPCInitApp {
     registered: boolean,
     user_info: PoolUserInfo,
     device: PoolDeviceInfo,
+    pools: PoolInfo[],
 }
 
 export interface IPCSavedPoolData {
@@ -24,6 +25,7 @@ export interface IPCSavedPoolData {
 export interface IPCPoolNode {
     node_id: string,
     user_id: string,
+    device: PoolDeviceInfo,
 }
 
 export interface IPCInitPool {

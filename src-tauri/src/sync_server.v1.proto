@@ -121,6 +121,7 @@ message SSMessage { // Sync Server Message
         string node_id = 1;
         string user_id = 2;
         repeated uint32 path = 3;
+        PoolDeviceInfo device = 4;
     }
 
     message RemoveNodeData {

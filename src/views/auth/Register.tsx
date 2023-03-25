@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RegisterNewUser } from "../../auth/auth";
+import { Backend } from "../../backend/global";
 import { StaticCenter } from "../components/StaticCenter";
 
 import './Register.css';
@@ -23,7 +23,7 @@ export function Register() {
         }
 
         setRegistering(true);
-        RegisterNewUser(displayName, deviceName).then(() => {
+        Backend.registerNewUser(displayName, deviceName).then(() => {
             navigate("/pool");
         }).catch(() => {
             setRegistering(false);

@@ -11,12 +11,12 @@ use app::{
     __cmd__request_message_history, __cmd__retract_file_offer, __cmd__send_text_message,
     commands::{
         add_file_offer, add_image_offer, connect_to_pool, disconnect_from_pool, download_file,
-        remove_file_download, request_message_history, retract_file_offer, send_text_message, register_device,
+        remove_file_download, request_message_history, retract_file_offer, send_text_message, register_device, set_auth_token, add_pool, remove_pool,
     },
     config::PRODUCTION_MODE,
-    events::init_profile_event,
+    events::init_app_event,
     store::file_store::FileStore,
-    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, __cmd__register_device,
+    GLOBAL_APP_HANDLE, MESSAGES_DB, POOL_MANAGER, STORE_MANAGER, __cmd__register_device, __cmd__set_auth_token, __cmd__add_pool, __cmd__remove_pool,
 };
 use log::info;
 use tauri::{Manager, Window, WindowEvent};
@@ -60,6 +60,9 @@ async fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             register_device,
+            set_auth_token,
+            add_pool,
+            remove_pool,
             connect_to_pool,
             disconnect_from_pool,
             send_text_message,
@@ -109,7 +112,7 @@ async fn init_app(main_window: &Window) {
             .size()
             .height,
     );
-    init_profile_event();
+    init_app_event();
     info!("Initialized App!");
 }
 

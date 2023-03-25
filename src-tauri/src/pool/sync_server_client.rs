@@ -78,17 +78,20 @@ impl SyncServerClient {
         log::info!("nodeID: {}", self.pool_state.node_id);
         log::info!("userID: {}", self.pool_state.user.user_id);
 
-        STORE_MANAGER.update_pool(self.pool_state.pool_id.clone(), pool_info.clone());
+        STORE_MANAGER.update_pool(pool_info.clone());
 
         let init_nodes = {
             let mut init_nodes = Vec::with_capacity(init_pool_data.init_nodes.len());
             let mut active_nodes = self.pool_state.active_nodes.write();
 
             for add_node_data in init_pool_data.init_nodes {
-                init_nodes.push(IPCPoolNode {
-                    node_id: add_node_data.node_id.clone(),
-                    user_id: add_node_data.user_id,
-                });
+                if let Some(device) = add_node_data.device {
+                    init_nodes.push(IPCPoolNode {
+                        node_id: add_node_data.node_id.clone(),
+                        user_id: add_node_data.user_id,
+                        device,
+                    });
+                }
                 active_nodes.insert(add_node_data.node_id, add_node_data.path);
             }
 
@@ -103,14 +106,22 @@ impl SyncServerClient {
     }
 
     fn add_node(&self, add_node_data: AddNodeData) {
+        let device = match add_node_data.device {
+            Some(device) => device,
+            None => return,
+        };
+
         self.pool_state
             .update_active_node_path(&add_node_data.node_id, add_node_data.path);
+
+        STORE_MANAGER.add_pool_device(&self.pool_state.pool_id, &add_node_data.user_id, &device);
 
         add_pool_node_event(
             &self.pool_state.pool_id,
             IPCPoolNode {
                 node_id: add_node_data.node_id,
                 user_id: add_node_data.user_id,
+                device,
             },
         );
     }

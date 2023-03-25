@@ -7,9 +7,8 @@ import { PoolFileInfo } from "../types/pool.v1";
 import { open } from '@tauri-apps/api/dialog';
 import { IPCPoolMessageHistory } from "./ipc";
 import sanitizeHTML from "sanitize-html";
-import { AuthenticateDevice } from "../auth/auth";
-import { PoolDeviceInfo, PoolUserInfo } from "../types/sync_server.v1";
-import { profileAction, ProfileState } from "../store/slices/profile.slice";
+import { AuthenticateDevice, RegisterNewUser } from "../api/auth";
+import { CreateInviteToPool, CreatePool, JoinPool, LeavePool } from "../api/pool";
 
 const BR_TAG: string = "<br />";
 
@@ -17,17 +16,41 @@ export class BackendCommands {
 
     poolKeyMap: Map<string, number> = new Map();
 
-    constructor() {}
+    constructor() { }
 
     getPoolKey(poolId: string): number | undefined {
         return this.poolKeyMap.get(poolId);
     }
 
-    registerDevice(userInfo: PoolUserInfo, deviceInfo: PoolDeviceInfo) {
+    setAuthToken(authToken: string) {
+        invoke('set_auth_token', { authToken });
+    }
+
+    async registerNewUser(displayName: string, deviceName: string) {
+        let [ userInfo, deviceInfo ] = await RegisterNewUser(displayName, deviceName);
         invoke('register_device', {
             userInfo,
             deviceInfo,
         });
+    }
+
+    async createPool(poolName: string) {
+        let poolInfo = await CreatePool(poolName);
+        invoke('add_pool', { poolInfo });
+    }
+
+    async joinPool(inviteLink: string) {
+        let poolInfo = await JoinPool(inviteLink);
+        invoke('add_pool', { poolInfo });
+    }
+
+    async leavePool(poolId: string) {
+        await LeavePool(poolId);
+        invoke('remove_pool', { poolId });
+    }
+
+    async createInviteLink(poolId: string): Promise<string> {
+        return await CreateInviteToPool(poolId);
     }
 
     async connectToPool(poolId: string, poolKey: number, authenticate: boolean = false) {
@@ -38,17 +61,16 @@ export class BackendCommands {
             state: PoolConnectionState.CONNECTING,
         } as UpdateConnectionStateAction));
 
-        let authToken = "";
         if (authenticate) {
             try {
-                authToken = await AuthenticateDevice();
-            } catch(e) {
+                await AuthenticateDevice();
+            } catch (e) {
                 this.connectToPool(poolId, poolKey, authenticate);
                 return;
             }
         }
 
-        invoke('connect_to_pool', { poolId, authToken });
+        invoke('connect_to_pool', { poolId });
     }
 
     disconnectFromPool(poolId: string) {
@@ -79,7 +101,7 @@ export class BackendCommands {
         if (text.length == 0) {
             return;
         }
-        
+
         invoke('send_text_message', { poolId, text });
     }
 
@@ -152,7 +174,7 @@ export class BackendCommands {
         store.dispatch(poolAction.addDownload(addDownloadAction));
 
         await invoke('download_file', { poolId, fileInfo, dirPath });
-        
+
         return true;
     }
 
@@ -166,7 +188,7 @@ export class BackendCommands {
     removeFileDownload(poolId: string, fileDownload: PoolFileDownload) {
         let key = this.getPoolKey(poolId);
         if (key == undefined) return;
-        
+
         let removeDownloadAction: RemoveDownloadAction = {
             key,
             fileID: fileDownload.fileInfo.fileId,
@@ -203,7 +225,7 @@ export class BackendCommands {
                     return false;
                 }
 
-                chunkNumber = pool.historyFeed.historyChunkNumber - 1; 
+                chunkNumber = pool.historyFeed.historyChunkNumber - 1;
             }
 
             // console.log("Requesting Message History", chunkNumber);
@@ -222,7 +244,7 @@ export class BackendCommands {
                     break;
                 }
             }
-            
+
             if (msgId == "") {
                 return false;
             }
