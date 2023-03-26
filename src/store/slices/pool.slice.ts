@@ -29,7 +29,6 @@ const poolSlice = createSlice({
                 let pool: Pool = {
                     poolID: poolsInfo[i].poolId,
                     poolName: poolsInfo[i].poolName,
-                    key: i,
                     nodeID: "",
                     connectionState: PoolConnectionState.CLOSED,
                     users: poolsInfo[i].users,
@@ -48,7 +47,6 @@ const poolSlice = createSlice({
             let pool: Pool = {
                 poolID: poolInfo.poolId,
                 poolName: poolInfo.poolName,
-                key: state.pools.length,
                 nodeID: "",
                 connectionState: PoolConnectionState.CLOSED,
                 users: poolInfo.users,
@@ -57,18 +55,30 @@ const poolSlice = createSlice({
                 downloadQueue: [],
                 feed: [],
             };
-            state.pools.push(pool);
+            state.pools.unshift(pool);
 
             PoolStore.setDisplayNames(pool.users);
         },
         removePool(state: PoolsState, action: PayloadAction<PoolAction>) {
-            let pool = getPool(state, action);
-            // Remove pool
-            PoolStore.clearActiveDevices(pool.poolID);
+            let poolID = action.payload.poolID;
+            let index = state.pools.findIndex((pool) => pool.poolID == poolID);
+            if (index >= 0) {
+                state.pools.splice(index, 1);
+            }
+
+            PoolStore.clearActiveDevices(action.payload.poolID);
         },
         initPool(state: PoolsState, action: PayloadAction<InitPoolAction>) {
-            let pool = getPool(state, action);
             let initPool = action.payload.initPool;
+            let index = state.pools.findIndex(pool => pool.poolID == initPool.pool_info.poolId);
+            if (index < 0) {
+                return;
+            }
+
+            let pool = state.pools[index];
+            state.pools.splice(index, 1);
+            state.pools.unshift(pool);
+
             pool.poolName = initPool.pool_info.poolName;
             pool.connectionState = PoolConnectionState.CONNECTED;
             pool.nodeID = initPool.node_id;
@@ -405,7 +415,7 @@ const poolSlice = createSlice({
 });
 
 function getPool(state: PoolsState, action: PayloadAction<PoolAction>): Pool {
-    return state.pools[action.payload.key];
+    return state.pools.find(pool => pool.poolID == action.payload.poolID)!;
 }
 
 function messagesToFeed(messages: PoolMessage[]): FeedMessage[] {

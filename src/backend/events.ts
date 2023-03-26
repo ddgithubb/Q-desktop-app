@@ -4,10 +4,12 @@ import { poolAction, setMaxFeedSize } from '../store/slices/pool.slice';
 import { profileAction, ProfileState } from '../store/slices/profile.slice';
 import { PoolStore, store } from '../store/store';
 import { PoolConnectionState } from '../types/pool.model';
-import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate, IPCInitApp } from './ipc';
+import { IPCAddPoolFileOffers, IPCAddPoolNode, IPCAppendPoolMessage, IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders, IPCLatestPoolMessages, IPCReconnectPool, IPCRemovePoolFileOffer, IPCRemovePoolNode, IPCRemovePoolUser, IPCAddPoolUser, IPCStateUpdate, IPCInitApp, IPCRefreshAuthToken } from './ipc';
 import { Backend } from './global';
+import { setAuthToken } from '../api/api';
 
 const STATE_UPDATE_EVENT: string = "state-update";
+const REFRESH_AUTH_TOKEN_EVENT: string = "refresh-auth-token";
 
 const INIT_APP_EVENT: string = "init-app";
 
@@ -32,6 +34,11 @@ listen(STATE_UPDATE_EVENT, (event) => {
     PoolStore.updateDownloadProgress(state.file_downloads_progress);
 });
 
+listen(REFRESH_AUTH_TOKEN_EVENT, (event) => {
+    let refreshAuthToken: IPCRefreshAuthToken = event.payload as any;
+    setAuthToken(refreshAuthToken.auth_token);
+});
+
 listen(INIT_APP_EVENT, (event) => {
     let initApp: IPCInitApp = event.payload as any;
     let profileState: ProfileState = {
@@ -49,11 +56,8 @@ listen(INIT_APP_EVENT, (event) => {
 
 listen(INIT_POOL_EVENT, (event) => {
     let initPool: IPCInitPool = event.payload as any;
-    let key = Backend.getPoolKey(initPool.pool_info.poolId);
-    if (key == undefined) return;
-
     let initPoolAction: InitPoolAction = {
-        key,
+        poolID: initPool.pool_info.poolId,
         initPool,
     };
     store.dispatch(poolAction.initPool(initPoolAction));
@@ -61,25 +65,19 @@ listen(INIT_POOL_EVENT, (event) => {
 
 listen(RECONNECT_POOL_EVENT, (event) => {
     let reconnectPool: IPCReconnectPool = event.payload as any;
-    let key = Backend.getPoolKey(reconnectPool.pool_id);
-    if (key == undefined) return;
-
     let updateConnectionStateAction: UpdateConnectionStateAction = {
-        key,
+        poolID: reconnectPool.pool_id,
         state: PoolConnectionState.RECONNECTING,
     };
     store.dispatch(poolAction.updateConnectionState(updateConnectionStateAction));
 
-    Backend.connectToPool(reconnectPool.pool_id, key, reconnectPool.reauth);
+    Backend.connectToPool(reconnectPool.pool_id, reconnectPool.reauth);
 });
 
 listen(ADD_POOL_NODE_EVENT, (event) => {
     let addPoolNode: IPCAddPoolNode = event.payload as any;
-    let key = Backend.getPoolKey(addPoolNode.pool_id);
-    if (key == undefined) return;
-    
     let addNodeAction: AddNodeAction = {
-        key,
+        poolID: addPoolNode.pool_id,
         node: addPoolNode.node,
     };
     store.dispatch(poolAction.addNode(addNodeAction));
@@ -87,11 +85,8 @@ listen(ADD_POOL_NODE_EVENT, (event) => {
 
 listen(REMOVE_POOL_NODE_EVENT, (event) => {
     let removePoolNode: IPCRemovePoolNode = event.payload as any;
-    let key = Backend.getPoolKey(removePoolNode.pool_id);
-    if (key == undefined) return;
-
     let removeNodeAction: RemoveNodeAction = {
-        key,
+        poolID: removePoolNode.pool_id,
         nodeID: removePoolNode.node_id,
     };
     store.dispatch(poolAction.removeNode(removeNodeAction));
@@ -99,11 +94,8 @@ listen(REMOVE_POOL_NODE_EVENT, (event) => {
 
 listen(ADD_POOL_USER_EVENT, (event) => {
     let addPoolUser: IPCAddPoolUser = event.payload as any;
-    let key = Backend.getPoolKey(addPoolUser.pool_id);
-    if (key == undefined) return;
-
     let addUserAction: AddUserAction = {
-        key,
+        poolID: addPoolUser.pool_id,
         userInfo: addPoolUser.user_info,
     };
     store.dispatch(poolAction.addUser(addUserAction));
@@ -111,11 +103,8 @@ listen(ADD_POOL_USER_EVENT, (event) => {
 
 listen(REMOVE_POOL_USER_EVENT, (event) => {
     let removePoolUser: IPCRemovePoolUser = event.payload as any;
-    let key = Backend.getPoolKey(removePoolUser.pool_id);
-    if (key == undefined) return;
-
     let removeUserAction: RemoveUserAction = {
-        key,
+        poolID: removePoolUser.pool_id,
         userID: removePoolUser.user_id,
     };
     store.dispatch(poolAction.removeUser(removeUserAction));
@@ -123,11 +112,8 @@ listen(REMOVE_POOL_USER_EVENT, (event) => {
 
 listen(ADD_POOL_FILE_OFFERS_EVENT, (event) => {
     let addFileOffers: IPCAddPoolFileOffers = event.payload as any;
-    let key = Backend.getPoolKey(addFileOffers.pool_id);
-    if (key == undefined) return;
-
     let addFileOffersAction: AddFileOffersAction = {
-        key,
+        poolID: addFileOffers.pool_id,
         nodeID: addFileOffers.node_id,
         fileInfos: addFileOffers.file_offers,
     };
@@ -136,11 +122,8 @@ listen(ADD_POOL_FILE_OFFERS_EVENT, (event) => {
 
 listen(REMOVE_POOL_FILE_OFFER_EVENT, (event) => {
     let removeFileOffer: IPCRemovePoolFileOffer = event.payload as any;
-    let key = Backend.getPoolKey(removeFileOffer.pool_id);
-    if (key == undefined) return;
-
     let removeFileOfferAction: RemoveFileOfferAction = {
-        key,
+        poolID: removeFileOffer.pool_id,
         nodeID: removeFileOffer.node_id,
         fileID: removeFileOffer.file_id,
     };
@@ -149,11 +132,8 @@ listen(REMOVE_POOL_FILE_OFFER_EVENT, (event) => {
 
 listen(INIT_POOL_FILE_SEEDERS_EVENT, (event) => {
     let initFileSeeders: IPCInitPoolFileSeeders = event.payload as any;
-    let key = Backend.getPoolKey(initFileSeeders.pool_id);
-    if (key == undefined) return;
-
     let InitFileSeedersAction: InitFileSeedersAction = {
-        key,
+        poolID: initFileSeeders.pool_id,
         fileSeeders: initFileSeeders.file_seeders,
     };
     store.dispatch(poolAction.initFileSeeders(InitFileSeedersAction));
@@ -161,11 +141,8 @@ listen(INIT_POOL_FILE_SEEDERS_EVENT, (event) => {
 
 listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {
     let completeFileDownload: IPCCompletePoolFileDownload = event.payload as any;
-    let key = Backend.getPoolKey(completeFileDownload.pool_id);
-    if (key == undefined) return;
-
     let completeDownloadAction: CompleteDownloadAction = {
-        key,
+        poolID: completeFileDownload.pool_id,
         fileID: completeFileDownload.file_id,
         success: completeFileDownload.success,
     };
@@ -174,12 +151,9 @@ listen(COMPLETE_POOL_FILE_DOWNLOAD_EVENT, (event) => {
 
 listen(LATEST_POOL_MESSAGES_EVENT, (event) => {
     let latestMessages: IPCLatestPoolMessages = event.payload as any;
-    let key = Backend.getPoolKey(latestMessages.pool_id);
-    if (key == undefined) return;
-
     setMaxFeedSize(latestMessages.max_messages_render);
     let latestMessagesAction: LatestMessagesAction = {
-        key,
+        poolID: latestMessages.pool_id,
         messages: latestMessages.messages,
     };
     store.dispatch(poolAction.latestMessages(latestMessagesAction));
@@ -187,11 +161,8 @@ listen(LATEST_POOL_MESSAGES_EVENT, (event) => {
 
 listen(APPEND_POOL_MESSAGE_EVENT, (event) => {
     let appendMessage: IPCAppendPoolMessage = event.payload as any;
-    let key = Backend.getPoolKey(appendMessage.pool_id);
-    if (key == undefined) return;
-
     let appendMessageAction: AppendMessageAction = {
-        key,
+        poolID: appendMessage.pool_id,
         message: appendMessage.message,
     };
     store.dispatch(poolAction.appendMessage(appendMessageAction));

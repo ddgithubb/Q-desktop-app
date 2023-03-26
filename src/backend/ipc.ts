@@ -11,6 +11,10 @@ export interface IPCStateUpdate {
     file_downloads_progress: IPCFileDownloadProgress[],
 }
 
+export interface IPCRefreshAuthToken {
+    auth_token: string,
+}
+
 export interface IPCInitApp {
     registered: boolean,
     user_info: PoolUserInfo,

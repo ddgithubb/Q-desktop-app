@@ -5,7 +5,7 @@ use crate::{
         IPCAddPoolFileOffers, IPCAddPoolNode, IPCAddPoolUser, IPCAppendPoolMessage,
         IPCCompletePoolFileDownload, IPCInitPool, IPCInitPoolFileSeeders,
         IPCLatestPoolMessages, IPCPoolNode, IPCReconnectPool, IPCRemovePoolFileOffer,
-        IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate,
+        IPCRemovePoolNode, IPCRemovePoolUser, IPCStateUpdate, IPCRefreshAuthToken,
     },
     poolpb::{PoolFileInfo, PoolFileSeeders, PoolMessage},
     sspb::PoolUserInfo,
@@ -13,6 +13,7 @@ use crate::{
 };
 
 const STATE_UPDATE_EVENT: &'static str = "state-update";
+const REFRESH_AUTH_TOKEN_EVENT: &'static str = "refresh-auth-token";
 
 const INIT_APP_EVENT: &'static str = "init-app";
 
@@ -35,6 +36,14 @@ const APPEND_POOL_MESSAGE_EVENT: &'static str = "append-pool-message";
 pub fn state_update_event(state: IPCStateUpdate) {
     if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
         let _ = app_handle.emit_all(STATE_UPDATE_EVENT, state);
+    }
+}
+
+pub fn refresh_auth_token_event() {
+    if let Some(app_handle) = &*GLOBAL_APP_HANDLE.load() {
+        let _ = app_handle.emit_all(REFRESH_AUTH_TOKEN_EVENT, IPCRefreshAuthToken {
+            auth_token: STORE_MANAGER.auth_token(),
+        });
     }
 }
 

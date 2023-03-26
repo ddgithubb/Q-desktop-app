@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api";
-import { AddDownloadAction, AddMessageHistoryAction, ClearPoolAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
+import { AddDownloadAction, AddMessageHistoryAction, AddPoolAction, ClearPoolAction, PoolAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
 import { checkMajorityMessageOverlap, poolAction } from "../store/slices/pool.slice";
 import { getStoreState, store } from "../store/store";
 import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
@@ -14,13 +14,7 @@ const BR_TAG: string = "<br />";
 
 export class BackendCommands {
 
-    poolKeyMap: Map<string, number> = new Map();
-
     constructor() { }
-
-    getPoolKey(poolId: string): number | undefined {
-        return this.poolKeyMap.get(poolId);
-    }
 
     setAuthToken(authToken: string) {
         invoke('set_auth_token', { authToken });
@@ -36,16 +30,36 @@ export class BackendCommands {
 
     async createPool(poolName: string) {
         let poolInfo = await CreatePool(poolName);
+
+        let addPoolAction: AddPoolAction = {
+            poolID: poolInfo.poolId,
+            poolInfo,
+        };
+        store.dispatch(poolAction.addPool(addPoolAction));
+
         invoke('add_pool', { poolInfo });
     }
 
     async joinPool(inviteLink: string) {
         let poolInfo = await JoinPool(inviteLink);
+
+        let addPoolAction: AddPoolAction = {
+            poolID: poolInfo.poolId,
+            poolInfo,
+        };
+        store.dispatch(poolAction.addPool(addPoolAction));
+
         invoke('add_pool', { poolInfo });
     }
 
     async leavePool(poolId: string) {
         await LeavePool(poolId);
+
+        let removePoolAction: PoolAction = {
+            poolID: poolId,
+        };
+        store.dispatch(poolAction.removePool(removePoolAction));
+
         invoke('remove_pool', { poolId });
     }
 
@@ -53,11 +67,9 @@ export class BackendCommands {
         return await CreateInviteToPool(poolId);
     }
 
-    async connectToPool(poolId: string, poolKey: number, authenticate: boolean = false) {
-        this.poolKeyMap.set(poolId, poolKey);
-
+    async connectToPool(poolId: string, authenticate: boolean = false) {
         store.dispatch(poolAction.updateConnectionState({
-            key: poolKey,
+            poolID: poolId,
             state: PoolConnectionState.CONNECTING,
         } as UpdateConnectionStateAction));
 
@@ -65,7 +77,7 @@ export class BackendCommands {
             try {
                 await AuthenticateDevice();
             } catch (e) {
-                this.connectToPool(poolId, poolKey, authenticate);
+                this.connectToPool(poolId, authenticate);
                 return;
             }
         }
@@ -74,13 +86,8 @@ export class BackendCommands {
     }
 
     disconnectFromPool(poolId: string) {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return;
-
-        this.poolKeyMap.delete(poolId);
-
         store.dispatch(poolAction.clearPool({
-            key,
+            poolID: poolId,
         } as ClearPoolAction));
 
         invoke('disconnect_from_pool', { poolId });
@@ -106,9 +113,6 @@ export class BackendCommands {
     }
 
     async addFileOffer(poolId: string) {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return;
-
         let filePath = await open({
             multiple: false, // Not supported for now
             directory: false,
@@ -129,9 +133,6 @@ export class BackendCommands {
     }
 
     async addImageOffer(poolId: string) {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return;
-
         let filePath = await open({
             multiple: false,
             directory: false,
@@ -150,9 +151,6 @@ export class BackendCommands {
     }
 
     async downloadFile(poolId: string, fileInfo: PoolFileInfo, isTemp: boolean = false): Promise<boolean> {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return false;
-
         let dirPath = "";
         if (!isTemp) {
             let path = await open({
@@ -168,7 +166,7 @@ export class BackendCommands {
         }
 
         let addDownloadAction: AddDownloadAction = {
-            key,
+            poolID: poolId,
             fileInfo,
         };
         store.dispatch(poolAction.addDownload(addDownloadAction));
@@ -179,18 +177,12 @@ export class BackendCommands {
     }
 
     retractFileOffer(poolId: string, fileId: string) {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return;
-
         invoke('retract_file_offer', { poolId, fileId });
     }
 
     removeFileDownload(poolId: string, fileDownload: PoolFileDownload) {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return;
-
         let removeDownloadAction: RemoveDownloadAction = {
-            key,
+            poolID: poolId,
             fileID: fileDownload.fileInfo.fileId,
         };
         store.dispatch(poolAction.removeDownload(removeDownloadAction));
@@ -201,16 +193,18 @@ export class BackendCommands {
     }
 
     async requestMessageHistory(poolId: string, asc: boolean = false): Promise<boolean> {
-        let key = this.getPoolKey(poolId);
-        if (key == undefined) return false;
         let messageHistory: IPCPoolMessageHistory;
 
-        let pool = getStoreState().pool.pools[key];
+        let pool = getStoreState().pool.pools.find(pool => pool.poolID == poolId);
+        if (!pool) {
+            return false;
+        }
+        
         if (pool.historyFeed) {
             let chunkNumber: number;
             if (asc) {
                 if (checkMajorityMessageOverlap(pool.historyFeed.feed, pool.feed)) {
-                    store.dispatch(poolAction.switchToLatestFeed({ key }));
+                    store.dispatch(poolAction.switchToLatestFeed({ poolID: poolId }));
                     return false;
                 }
 
@@ -259,7 +253,7 @@ export class BackendCommands {
         }
 
         let addMessageHistoryAction: AddMessageHistoryAction = {
-            key,
+            poolID: poolId,
             messageHistory,
         };
         store.dispatch(poolAction.addMessageHistory(addMessageHistoryAction));

@@ -14,8 +14,8 @@ use crate::config::{
     sync_server_connect_endpoint, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_TIMEOUT_SECONDS,
 };
 use crate::events::{
-    add_pool_node_event, add_pool_user_event, init_pool_event, remove_pool_node_event,
-    remove_pool_user_event,
+    add_pool_node_event, add_pool_user_event, init_pool_event, refresh_auth_token_event,
+    remove_pool_node_event, remove_pool_user_event,
 };
 use crate::ipc::{IPCInitPool, IPCPoolNode};
 use crate::sspb::ss_message::{
@@ -187,29 +187,36 @@ impl SyncServerClient {
 
         let auth_token = STORE_MANAGER.auth_token();
         self.send_ws_conn(auth_token.into_bytes()).await;
+        match ws_read.next().await {
+            Some(Ok(WSMessage::Text(token))) => {
+                log::info!("sync_server_loop : AUTH_REFRESHED with token {}", token);
+                STORE_MANAGER.set_auth_token(token);
+                refresh_auth_token_event();
+            }
+            _ => {
+                log::warn!(
+                    "sync_server_loop : AUTH_ERR with token {}",
+                    STORE_MANAGER.auth_token()
+                );
+                self.pool_state.set_auth_error();
+                self.close().await;
+                return;
+            }
+        }
 
         self.clone().start_heartbeat_interval();
 
-        let mut auth_err = true;
         use tungstenite::Error;
         loop {
             match ws_read.next().await {
                 Some(Ok(WSMessage::Binary(buf))) => {
                     if let Ok(ss_msg) = SSMessage::decode(&*buf) {
                         if ss_msg.op() == SSMessageOp::Close {
-                            if auth_err {
-                                log::warn!(
-                                    "sync_server_loop : AUTH_ERR with token {}",
-                                    STORE_MANAGER.auth_token()
-                                );
-                                self.pool_state.set_auth_error()
-                            }
                             self.close().await;
                             continue;
                         }
 
                         if ss_msg.op() == SSMessageOp::Heartbeat {
-                            auth_err = false;
                             self.heartbeat_timeout.store(false, Ordering::SeqCst);
                             continue;
                         }

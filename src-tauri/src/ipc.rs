@@ -16,6 +16,11 @@ pub struct IPCStateUpdate {
     pub file_downloads_progress: Vec<IPCFileDownloadProgress>,
 }
 
+#[derive(Default, Clone, Serialize)]
+pub struct IPCRefreshAuthToken {
+    pub auth_token: String,
+}
+
 #[derive(Clone, Serialize)]
 pub struct IPCInitApp {
     pub registered: bool,

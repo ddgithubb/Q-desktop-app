@@ -31,7 +31,6 @@ export enum UserStatus {
 export interface Pool {
     poolID: string;
     poolName: string;
-    key: number;
     nodeID: string;
     connectionState: PoolConnectionState;
     users: PoolUserInfo[];

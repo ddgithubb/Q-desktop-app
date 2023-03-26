@@ -8,7 +8,7 @@ export interface PoolsState {
 }
 
 export interface PoolAction {
-    key: number;
+    poolID: string;
 }
 
 export interface SetPoolsAction {

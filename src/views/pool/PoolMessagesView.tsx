@@ -19,14 +19,13 @@ const CONSISTENT_MESSAGE_INTERVAL: number = minutesToMillisecond(5);
 
 export interface PoolMessagesViewParams {
     poolID: string;
-    poolKey: number;
     feed: FeedMessage[];
     historyFeed?: HistoryFeed;
 }
 
 export const PoolMessagesView = memo(PoolMessagesViewComponent);
 
-function PoolMessagesViewComponent({ poolID, poolKey, feed, historyFeed }: PoolMessagesViewParams) {
+function PoolMessagesViewComponent({ poolID, feed, historyFeed }: PoolMessagesViewParams) {
 
     const [messagesElement, setMessagesElement] = useState<HTMLDivElement | null>(null);
     const [atNewestMessage, setAtNewestMessage] = useState<boolean>(true);
@@ -108,7 +107,7 @@ function PoolMessagesViewComponent({ poolID, poolKey, feed, historyFeed }: PoolM
     const goToLatest = () => {
         if (historyFeed) {
             setAtNewestMessage(true);
-            store.dispatch(poolAction.switchToLatestFeed({ key: poolKey }));
+            store.dispatch(poolAction.switchToLatestFeed({ poolID }));
         } else {
             messagesElement!.lastElementChild?.scrollIntoView();
         }

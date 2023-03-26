@@ -42,7 +42,6 @@ export function PoolContainerView() {
     const navigate = useNavigate();
     const { poolID } = useParams();
     const [ searchParams ] = useSearchParams();
-    const [ poolKey, setPoolKey ] = useState<number>(0);
 
     useEffect(() => {
         if (!poolID) {
@@ -69,8 +68,7 @@ export function PoolContainerView() {
         let pools = getStoreState().pool.pools;
         for (const pool of pools) {
             if (pool.poolID == poolID) {
-                setPoolKey(pool.key);
-                Backend.connectToPool(poolID, poolKey);
+                Backend.connectToPool(poolID);
                 return;
             }
         }
@@ -79,17 +77,17 @@ export function PoolContainerView() {
         navigate('/pool');
     }, [])
 
-    if (!poolID && !poolKey) {
+    if (!poolID) {
         return null
     } else {
-        return <PoolView poolID={poolID!} poolKey={poolKey} />
+        return <PoolView poolID={poolID!} />
     }
 }
 
-export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number }) {
+export function PoolView({ poolID }: { poolID: string }) {
 
     const [ messageMode, setMessageMode ] = useState<PoolMessageMode>(PoolMessageMode.TEXT);
-    const pool = useSelector((state: GlobalState) => state.pool.pools[poolKey]);
+    const pool = useSelector((state: GlobalState) => state.pool.pools.find(pool => pool.poolID == poolID));
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -102,7 +100,7 @@ export function PoolView({ poolID, poolKey }: { poolID: string, poolKey: number 
     return (
         <div className="pool-view">
             {/* TODO: add fixed siaply of pool name along with # of active devices, # of active users, and # of users in general */}
-            <PoolMessagesView poolID={poolID} poolKey={pool?.key || 0} feed={pool?.feed || []} historyFeed={pool?.historyFeed} />
+            <PoolMessagesView poolID={poolID} feed={pool?.feed || []} historyFeed={pool?.historyFeed} />
             {
                 pool ? (
                     <PoolDisplayView pool={pool} messageMode={messageMode} />
