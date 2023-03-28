@@ -1,0 +1,215 @@
+.pools-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 30px;
+    overflow-x: hidden;
+    padding-bottom: 50px;
+}
+
+.pools-profile-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80px;
+    font-size: 24px;
+}
+
+.pools-pool-container {
+    display: flex;
+    flex-direction: row;
+    height: 110px;
+    background-color: var(--dark-color-secondary);
+    border-radius: 5px;
+    -webkit-box-shadow: 5px 5px 15px 5px rgba(0,0,0,0.7); 
+    box-shadow: 5px 5px 15px 5px rgba(0,0,0,0.7);
+    margin-top: 20px;
+}
+
+.pools-pool-info-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    flex-grow: 1;
+}
+
+.pools-pool-info-name {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0px 30px;
+    flex-grow: 1;
+    font-size: 20px;
+}
+
+.pools-pool-info-stats {
+    display: flex;
+    flex-direction: row;
+    padding: 0px 30px;
+    padding-bottom: 25px;
+}
+
+.pools-pool-info-stats-bar-container {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.pools-pool-info-stats-bar-subtitle {
+    color: var(--light-color);
+    font-size: 13px;
+}
+
+.pools-pool-action-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    gap: 10px;
+    padding-right: 20px;
+}
+
+.pools-pool-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 30px;
+    width: 110px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: opacity 0.1s;
+    font-size: 13px;
+    color: var(--light-color);
+}
+
+.pools-pool-button:hover {
+    opacity: 0.7;
+}
+
+.pools-pool-connect-button {
+    background-color: var(--main-color);
+}
+
+.pools-pool-more-button, .pools-pool-invite-button, .pools-pool-leave-button {
+    border: 2px solid var(--dark-color);
+}
+
+.pools-pool-invite-button:hover {
+    background-color: var(--dark-color);
+    opacity: 1;
+}
+
+.pools-pool-leave-button {    
+    color: var(--danger-color);
+}
+
+.pools-pool-leave-button:hover {
+    color: var(--light-color);
+    background-color: var(--danger-color);
+    opacity: 1;
+}
+
+.pools-add-button-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    align-self: center;
+    bottom: 35px;
+}
+
+.pools-add-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60px;
+    width: 60px;
+    border-radius: 50%;
+    -webkit-box-shadow: 5px 5px 15px 5px rgba(0,0,0,0.7); 
+    box-shadow: 5px 5px 15px 5px rgba(0,0,0,0.7);
+    cursor: pointer;
+    transition: opacity 0.1s;
+    background-color: var(--main-color);
+}
+
+.pools-add-button:hover {
+    opacity: 0.8;
+}
+
+.pools-add-button-icon {
+    height: 30px;
+    width: 30px;
+}
+
+.pools-add-button-tooltip {
+    padding: 0 !important;
+    background-color: var(--dark-color-secondary) !important;
+}
+
+.pools-add-button-tooltip-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 40px;
+    font-size: 14px;
+    color: var(--light-color);
+    padding: 0px 20px;
+    cursor: pointer;
+}
+
+.pools-add-button-tooltip-button:hover {
+    background-color: var(--dark-color-tertiary);
+}
+
+.pools-add-button-tooltip-sep {
+    height: 2px;
+    width: 100%;
+    background-color: var(--dark-color);
+}
+
+.pools-status-container {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    align-items: center;
+}
+
+.pools-status {
+    display: flex;
+    flex-direction: row;
+    border-radius: 5px;
+    padding: 13px 20px;
+    gap: 20px;
+    align-items: center;
+    font-size: 14px;
+}
+
+.pools-status-img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.pools-status-error {
+    background-color: var(--danger-color)
+}
+
+.pools-more-button-tooltip {
+    padding: 0 !important;
+    background-color: var(--dark-color-secondary) !important;
+    translate: 0px 115px;
+}
+
+.pools-more-button-icon {
+    rotate: 90deg;
+    margin-left: 8px; 
+    margin-top: 2px;
+    height: 15px;
+    width: 15px;
+}

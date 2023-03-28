@@ -1,11 +1,17 @@
 use crate::{
-    events::{latest_pool_messages_event, init_app_event}, poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCPoolMessageHistory, MESSAGES_DB, sspb::{PoolDeviceInfo, PoolUserInfo, PoolInfo},
+    events::{latest_pool_messages_event, init_app_event, refresh_auth_token_event}, poolpb::PoolFileInfo, POOL_MANAGER, STORE_MANAGER, ipc::IPCPoolMessageHistory, MESSAGES_DB, sspb::{PoolDeviceInfo, PoolUserInfo, PoolInfo},
 };
 
 #[tauri::command]
 pub fn register_device(user_info: PoolUserInfo, device_info: PoolDeviceInfo) {
     STORE_MANAGER.new_profile(user_info, device_info);
     init_app_event();
+}
+
+#[tauri::command]
+pub fn request_init_app() {
+    init_app_event();
+    refresh_auth_token_event();
 }
 
 #[tauri::command]

@@ -2,18 +2,24 @@ import { EventEmitter } from "events";
 import { IPCFileDownloadProgress } from "../backend/ipc";
 import { PoolUserInfo } from "../types/sync_server.v1";
 
+const INVITE_LINK_CACHE_DURATION = 30 * 1000 * 60; // 30 minutes
+
 export class PoolStoreClass {
     
     private displayNameMap: Map<string, string>; // userID -> displayName
     private poolActiveDevices: Map<string, Map<string, string>>; // poolID -> deviceID -> userID
     private downloadsProgress: Map<string, number>; // fileID -> progress
     completedDownloadEvents: EventEmitter;
+
+    private inviteLinks: Map<string, string>; // poolID -> inviteLink
     
     constructor() {
         this.displayNameMap = new Map();
         this.poolActiveDevices = new Map();
         this.downloadsProgress = new Map();
         this.completedDownloadEvents = new EventEmitter();
+
+        this.inviteLinks = new Map();
     }
 
     getDisplayName(userID: string): string | undefined {
@@ -84,4 +90,23 @@ export class PoolStoreClass {
     hasDownload(fileID: string): boolean {
         return this.downloadsProgress.has(fileID);
     }
-}  
+
+    startInviteLinkCleaner() {
+        if (this.inviteLinks.size == 0) return;
+        let interval = setInterval(() => {
+            this.inviteLinks.forEach((inviteLink, poolID) => {
+                this.inviteLinks.delete(poolID);
+            });
+            if (this.inviteLinks.size == 0) clearInterval(interval);
+        }, INVITE_LINK_CACHE_DURATION);
+    }
+
+    setInviteLink(poolID: string, inviteLink: string) {
+        this.inviteLinks.set(poolID, inviteLink);
+        if (this.inviteLinks.size == 1) this.startInviteLinkCleaner();
+    }
+
+    getInviteLink(poolID: string): string | undefined {
+        return this.inviteLinks.get(poolID);
+    }
+}

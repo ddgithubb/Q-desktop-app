@@ -16,6 +16,10 @@ export interface JoinPoolResponse {
     PoolInfo: PoolInfo;
 }
 
+export interface LeavePoolResponse {
+    Success: boolean;
+}
+
 export interface CreateInviteToPoolResponse {
     InviteLink: string;
 }

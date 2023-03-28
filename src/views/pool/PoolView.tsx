@@ -93,7 +93,7 @@ export function PoolView({ poolID }: { poolID: string }) {
     useEffect(() => {
         if (messageMode == PoolMessageMode.DISCONNECT) {
             Backend.disconnectFromPool(poolID);
-            navigate('/join-pool');
+            navigate('/pool');
         }
     }, [messageMode]);
 
@@ -106,7 +106,7 @@ export function PoolView({ poolID }: { poolID: string }) {
                     <PoolDisplayView pool={pool} messageMode={messageMode} />
                 ) : null
             }
-            <ActionBar connectionState={pool?.connectionState || PoolConnectionState.CLOSED } messageMode={messageMode} setMessageMode={setMessageMode} />
+            <ActionBar messageMode={messageMode} setMessageMode={setMessageMode} />
             <motion.div className="pool-status-container" initial={{ y: -100 }} animate={{ y: (pool?.connectionState == PoolConnectionState.RECONNECTING ? 20 : -100) }}> 
                 <div className="pool-status pool-status-disconnected">
                     <img className="pool-status-img" src={DisconnectedIcon} />
@@ -119,12 +119,13 @@ export function PoolView({ poolID }: { poolID: string }) {
 
 const ActionBar = memo(ActionBarComponent);
 
-function ActionBarComponent({ connectionState, messageMode, setMessageMode }: { connectionState: PoolConnectionState, messageMode: PoolMessageMode, setMessageMode: React.Dispatch<React.SetStateAction<PoolMessageMode>> }) {
+function ActionBarComponent({ messageMode, setMessageMode }: { messageMode: PoolMessageMode, setMessageMode: React.Dispatch<React.SetStateAction<PoolMessageMode>> }) {
     return (
         <motion.div 
             className="action-bar" 
             initial={{ x: 150, opacity: 1 }}
-            animate={{ x: connectionState == PoolConnectionState.CONNECTED ? 0 : 150 }} 
+            animate={{ x: 0 }} 
+            // animate={{ x: connectionState == PoolConnectionState.CONNECTED ? 0 : 150 }} 
             transition={{ type: "spring", duration: 0.5 }} 
         >
             <ActionBarButton buttonType='danger' mode={PoolMessageMode.DISCONNECT} icon={DisconnectIcon} messageMode={messageMode} setMessageMode={setMessageMode} />

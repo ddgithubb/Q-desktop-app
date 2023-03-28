@@ -8,6 +8,7 @@ import { UnsupportedPage } from './views/static/UnsupportedPage'
 import { useSelector } from 'react-redux'
 import { GlobalState } from './store/store'
 import { Register } from './views/auth/Register'
+import { Backend } from './backend/global'
 
 function App() {
 
@@ -17,6 +18,7 @@ function App() {
 
   useEffect(() => {
     let initFunc = async () => {
+      await Backend.initApp();
       setGateOpen(true);
     }
     initFunc();

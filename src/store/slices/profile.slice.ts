@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { DeviceType, PoolDeviceInfo, PoolUserInfo } from "../../types/sync_server.v1";
+import { PoolStore } from "../store";
 
 export interface ProfileState {
     registered: boolean,

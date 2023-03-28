@@ -11,6 +11,7 @@ impl StoreManager {
     pub fn set_auth_token(&self, token: String) {
         let mut auth_store = self.auth_store.lock();
         auth_store.auth_token = token;
+        auth_store.update();
     }
 
     pub fn auth_token(&self) -> String {

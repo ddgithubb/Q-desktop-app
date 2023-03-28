@@ -2,7 +2,7 @@
 :root {
   --main-color-lightest: #d2deff;
   --main-color-light: #548ce6;
-  --main-color: #4679cc;
+  --main-color: #306ccc;
   --main-color-dark: #5173A8 ;
   --main-color-darker: #364D70;
   --main-color-darkest: #1B2638;
@@ -38,6 +38,7 @@ body {
   width: 100vw;
   background-color: var(--dark-color);
   color: var(--light-color);
+  overflow-x: hidden;
 }
 
 img {

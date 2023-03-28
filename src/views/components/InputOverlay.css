@@ -1,0 +1,62 @@
+.input-overlay-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    left: 0;
+    top: 0;
+}
+
+.input-overlay {
+    display: flex;
+    flex-direction: row;
+    background-color: var(--dark-color);
+    border-radius: 5px;
+    height: 46px;
+}
+
+.input-overlay-input {
+    display: flex;
+    outline: none;
+    border: none;
+    height: 100%;
+    width: 200px;
+    background: transparent;
+    color: var(--light-color);
+    padding: 0px 20px;
+    font-size: 15px;
+}
+
+.input-overlay-input-disabled {
+    color: var(--light-color-secondary);
+}
+
+.input-overlay-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 0px 20px;
+    font-size: 14px;
+    color: var(--light-color);
+    background-color: var(--main-color);
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    cursor: pointer;
+}
+
+.input-overlay-button:hover {
+    opacity: 0.8;
+}
+
+.input-overlay-extra {
+    margin-top: 5px;
+    color: var(--light-color);
+    font-size: 12px;
+    max-width: 330px;
+    text-align: center;
+}

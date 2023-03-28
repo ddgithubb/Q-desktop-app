@@ -1,7 +1,7 @@
 import { fetch, Body, ResponseType } from '@tauri-apps/api/http';
 import { PoolInfo } from '../types/sync_server.v1';
 import { API_ENDPOINT, fetchPostJSONWithAuthToken } from "./api";
-import { CreateInviteToPoolResponse, CreatePoolRequest, CreatePoolResponse, JoinPoolRequest, JoinPoolResponse } from "./pool.schemas";
+import { CreateInviteToPoolResponse, CreatePoolRequest, CreatePoolResponse, JoinPoolRequest, JoinPoolResponse, LeavePoolResponse } from "./pool.schemas";
 
 const POOL_ENDPOINT = API_ENDPOINT + "/pool";
 
@@ -50,6 +50,9 @@ export async function LeavePool(poolID: string) {
     if (!res.ok) {
         throw "Failed to leave pool";
     }
+
+    let leavePoolResponse: LeavePoolResponse = res.data as any;
+    // Don't need to do anything with the response, as long as don't throw an error
 }
 
 export async function CreateInviteToPool(poolID: string): Promise<string> {

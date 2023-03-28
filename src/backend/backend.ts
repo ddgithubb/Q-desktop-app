@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api";
 import { AddDownloadAction, AddMessageHistoryAction, AddPoolAction, ClearPoolAction, PoolAction, RemoveDownloadAction, UpdateConnectionStateAction } from "../store/slices/pool.action";
 import { checkMajorityMessageOverlap, poolAction } from "../store/slices/pool.slice";
-import { getStoreState, store } from "../store/store";
+import { getStoreState, PoolStore, store } from "../store/store";
 import { DownloadProgressStatus, PoolConnectionState, PoolFileDownload } from "../types/pool.model";
 import { PoolFileInfo } from "../types/pool.v1";
 import { open } from '@tauri-apps/api/dialog';
@@ -28,8 +28,14 @@ export class BackendCommands {
         });
     }
 
+    async initApp() {
+        await invoke('request_init_app');
+    }
+
     async createPool(poolName: string) {
         let poolInfo = await CreatePool(poolName);
+
+        console.log("PoolInfo", poolInfo);
 
         let addPoolAction: AddPoolAction = {
             poolID: poolInfo.poolId,
@@ -42,6 +48,8 @@ export class BackendCommands {
 
     async joinPool(inviteLink: string) {
         let poolInfo = await JoinPool(inviteLink);
+
+        console.log("JoinPool PoolInfo", poolInfo);
 
         let addPoolAction: AddPoolAction = {
             poolID: poolInfo.poolId,
@@ -64,7 +72,12 @@ export class BackendCommands {
     }
 
     async createInviteLink(poolId: string): Promise<string> {
-        return await CreateInviteToPool(poolId);
+        let inviteLink = PoolStore.getInviteLink(poolId);
+        if (!inviteLink) {
+            inviteLink = await CreateInviteToPool(poolId);
+            PoolStore.setInviteLink(poolId, inviteLink);
+        }
+        return inviteLink;
     }
 
     async connectToPool(poolId: string, authenticate: boolean = false) {
