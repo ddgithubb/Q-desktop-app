@@ -57,7 +57,7 @@ function PoolMessagesViewComponent({ poolID, feed, historyFeed }: PoolMessagesVi
             if (!atBottomThreshold.current) {
                 atBottomThreshold.current = true;
                 Backend.requestMessageHistory(poolID, true).then((hasMore) => {
-                    console.log("Has more bottom:", hasMore);
+                    // console.log("Has more bottom:", hasMore);
                     setHasMoreBottom(hasMore);
 
                     if (hasMore) {
@@ -72,7 +72,7 @@ function PoolMessagesViewComponent({ poolID, feed, historyFeed }: PoolMessagesVi
                 if (!atTopThreshold.current) {
                     atTopThreshold.current = true;
                     Backend.requestMessageHistory(poolID, false).then((hasMore) => {
-                        console.log("Has more top:", hasMore);
+                        // console.log("Has more top:", hasMore);
                         setHasMoreTop(hasMore);
 
                         if (hasMore) {
@@ -88,12 +88,12 @@ function PoolMessagesViewComponent({ poolID, feed, historyFeed }: PoolMessagesVi
         if (!hasMoreBottom) {
             if (e.currentTarget.scrollTop + e.currentTarget.offsetHeight + 10 >= e.currentTarget.scrollHeight) {
                 if (!atNewestMessage) {
-                    console.log("AT LATEST");
+                    // console.log("AT LATEST");
                     setAtNewestMessage(true);
                 }
             } else {
                 if (atNewestMessage) {
-                    console.log("NOT AT LATEST");
+                    // console.log("NOT AT LATEST");
                     setAtNewestMessage(false);
                 }
             }
@@ -217,7 +217,7 @@ function PoolMessagesViewComponent({ poolID, feed, historyFeed }: PoolMessagesVi
                         return (
                             <div className={"pool-message-container"} key={nodeStatus.nodeID + nodeStatus.status.toString() + nodeStatus.created.toString()}>
                                 <div className="pool-message-date pool-message-portable-date">{formatTime(nodeStatus.created)}</div>
-                                <NodeStatusComponent nodeStatus={nodeStatus} />
+                                <NodeStatusComponent displayName={PoolStore.getDisplayName(nodeStatus.userID)} nodeStatus={nodeStatus} />
                             </div>
                         )
                     } else if (feedMsg.userStatus) {
@@ -244,14 +244,18 @@ const HeaderComponent = memo(({ displayName, msg }: { displayName: string | unde
         <div className="pool-message-date elipsify-extra">
             {formatDate(msg.created)}
         </div>
+        <div className="pool-message-id elipsify-content">
+            ID: {msg.userId}
+        </div>
     </div>
 ), (prev, next) => {
     return !next.displayName || prev.displayName == next.displayName
 });
 
-const NodeStatusComponent = memo(({ nodeStatus }: { nodeStatus: PoolNodeStatus }) => (
+const NodeStatusComponent = memo(({ displayName, nodeStatus }: { displayName: string | undefined, nodeStatus: PoolNodeStatus }) => (
     <div className="pool-message-node-status">
-        Device {nodeStatus.nodeID} {"(" + nodeStatus.nodeID + ")"} has {nodeStatus.status == NodeStatus.ACTIVE ? "joined" : "left"}
+        {displayName} with device {nodeStatus.device.deviceName} has {nodeStatus.status == NodeStatus.ACTIVE ? "joined" : "left"}
+        {/* <span className="pool-message-node-status-id">{"(ID: " + nodeStatus.userID + ")"}</span> */}
     </div>
 ), (prev, next) => {
     return !next.nodeStatus.nodeID || prev.nodeStatus.nodeID == next.nodeStatus.nodeID;
@@ -259,7 +263,8 @@ const NodeStatusComponent = memo(({ nodeStatus }: { nodeStatus: PoolNodeStatus }
 
 const UserStatusComponent = memo(({ displayName, userStatus }: { displayName: string | undefined, userStatus: PoolUserStatus }) => (
     <div className="pool-message-node-status">
-        User {displayName} {"(" + userStatus.userID + ")"} has {userStatus.status == UserStatus.JOINED ? "joined" : "left"} the pool
+        {displayName} has {userStatus.status == UserStatus.JOINED ? "joined" : "left"} the pool
+        {/* <span className="pool-message-node-status-id">{"(ID: " + userStatus.userID + ")"}</span> */}
     </div>
 ), (prev, next) => {
     return !next.displayName || prev.displayName == next.displayName;

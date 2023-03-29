@@ -69,9 +69,8 @@ export function Pools() {
     const inviteLinkOverlay = (poolID: string) => {
         setInviteLink(undefined);
         Backend.createInviteLink(poolID).then((invite) => {
-            console.log("INVITE LINK", invite);
+            // console.log("INVITE LINK", invite);
             setInviteLink(invite);
-            console.log(inviteLink);
         }).catch((err) => {
             showErrorMessage("Error creating invite link");
         });
@@ -79,18 +78,18 @@ export function Pools() {
     }
 
     const createPool = (poolName: string) => {
-        console.log("CREATE POOL WITH NAME", poolName);
+        // console.log("CREATE POOL WITH NAME", poolName);
         Backend.createPool(poolName).catch((err) => {
-            console.log("ERROR CREATING POOL", err);
+            // console.log("ERROR CREATING POOL", err);
             showErrorMessage("Error creating pool");
         });
         setOverlayMode(OverlayMode.NONE);
     }
 
     const joinPool = (inviteLink: string) => {
-        console.log("JOIN POOL WITH LINK", inviteLink);
+        // console.log("JOIN POOL WITH LINK", inviteLink);
         Backend.joinPool(inviteLink).catch((err) => {
-            console.log("ERROR JOINING POOL", err);
+            // console.log("ERROR JOINING POOL", err);
             showErrorMessage("Error joining pool");
         });
         setOverlayMode(OverlayMode.NONE);
@@ -102,7 +101,7 @@ export function Pools() {
 
     const leavePool = (poolID: string) => {
         Backend.leavePool(poolID).catch((err) => {
-            console.log("ERROR LEAVING POOL", err);
+            // console.log("ERROR LEAVING POOL", err);
             showErrorMessage("Error leaving pool");
         });
     }
@@ -119,6 +118,9 @@ export function Pools() {
                 <div className="pools-pool-info-container">
                     <div className="pools-pool-info-name">
                         POOL_NAME    
+                    </div>
+                    <div className="pools-pool-info-id">
+                        ID: SOME_LONG_ID_HERE_1234567890
                     </div>
                     <div className="pools-pool-info-stats">
                         <div className="pools-pool-info-stats-bar-container">
@@ -150,10 +152,13 @@ export function Pools() {
 
             {
                 pools.map(pool => (
-                    <div className="pools-pool-container" key={pool.poolID}>
-                        <div className="pools-pool-info-container">
+                    <div className="pools-pool-container elipsify-container" key={pool.poolID}>
+                        <div className="pools-pool-info-container elipsify-content">
                             <div className="pools-pool-info-name">
                                 {pool.poolName}  
+                            </div>
+                            <div className="pools-pool-info-id">
+                                ID: {pool.poolID}
                             </div>
                             <div className="pools-pool-info-stats">
                                 <div className="pools-pool-info-stats-bar-container">
@@ -164,7 +169,7 @@ export function Pools() {
                                 </div>
                             </div>
                         </div>
-                        <div className="pools-pool-action-container">
+                        <div className="pools-pool-action-container elipsify-extra">
                             <div className="pools-pool-button pools-pool-connect-button" onClick={() => connectToPool(pool.poolID)}>
                                 Connect
                             </div>
@@ -207,6 +212,7 @@ export function Pools() {
                     onSubmit={createPool}
                     onClose={overlayOnClose}
                     buttonContent="Create"
+                    maxInputLength={50}
                 />
             ) : overlayMode == OverlayMode.JOIN_POOL ? (
                 <InputOverlay

@@ -6,8 +6,8 @@ use crate::config::PRODUCTION_MODE;
 
 use super::store_manager::StoreManager;
 
-// const DISABLE_STORE: bool = !PRODUCTION_MODE;
-const DISABLE_STORE: bool = false;
+const DISABLE_STORE: bool = !PRODUCTION_MODE;
+// const DISABLE_STORE: bool = false;
 
 pub enum StoreDataType {
     JSON,

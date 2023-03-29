@@ -12,6 +12,7 @@ import AddIcon from '../../assets/add.png'
 import AddImageIcon from '../../assets/add-image.png'
 import FileIcon from '../../assets/file.png'
 import CancelIcon from '../../assets/trash.png'
+import AddFileIcon from '../../assets/add-file.png'
 import { Backend } from '../../backend/global'
 import { PoolStore } from '../../store/store'
 
@@ -131,6 +132,7 @@ function PoolDisplayViewComponent({ pool, messageMode }: PoolDisplayViewParams) 
                 />
                 <div className="display-message-input-icons">
                     <img className="display-message-input-icon" src={AddImageIcon} onClick={addImage} />
+                    <img className="display-message-input-icon" src={AddFileIcon} onClick={addFile} />
                 </div>
             </div>
             <div aria-hidden={messageMode != PoolMessageMode.FILE} className="display-toggle-hide display-component-container display-files-container">

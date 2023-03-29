@@ -36,9 +36,12 @@ export async function fetchPostJSONWithAuthToken(endpoint: string, body: any, re
     });
 
     if (res.status == 401) {
-        AuthenticateDevice();
+        window.location.href = "/authenticating";
         throw "Unauthorized";
     }
+
+    // console.log("Refreshed token: ", res.headers["x-auth-token"]);
+    setAuthToken(res.headers["x-auth-token"]);
 
     return res;
 }

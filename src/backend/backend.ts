@@ -49,8 +49,6 @@ export class BackendCommands {
     async joinPool(inviteLink: string) {
         let poolInfo = await JoinPool(inviteLink);
 
-        console.log("JoinPool PoolInfo", poolInfo);
-
         let addPoolAction: AddPoolAction = {
             poolID: poolInfo.poolId,
             poolInfo,

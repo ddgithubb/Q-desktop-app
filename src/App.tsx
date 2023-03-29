@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux'
 import { GlobalState } from './store/store'
 import { Register } from './views/auth/Register'
 import { Backend } from './backend/global'
+import { Authenticating } from './views/static/Authenticating'
 
 function App() {
 
@@ -38,6 +39,7 @@ function App() {
           <Route path="/join-pool" element={ <JoinPool /> }/> 
           <Route path="/pool" element={ <Pools /> } />
           <Route path="/pool/:poolID" element={ <PoolContainerView /> } />
+          <Route path="/authenticating" element={ <Authenticating /> } />
         </Routes>
       </BrowserRouter>  
     ) : unsupportedNAT ? (

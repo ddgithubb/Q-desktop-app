@@ -7,6 +7,7 @@ export interface InputOverlayParams {
     initValue?: string;
     buttonContent: JSX.Element | string;
     extraInfo?: string;
+    maxInputLength?: number;
     onSubmit: (value: string) => void;
     onClose: () => void;
 };
@@ -47,7 +48,14 @@ export function InputOverlay(params: InputOverlayParams) {
     return (
         <div className="input-overlay-container" >
             <div className="input-overlay" ref={wrapperRef}>
-                <input className={"input-overlay-input" + (params.editable ? "" : " input-overlay-input-disabled")} type="text" placeholder={params.placeholder} disabled={!params.editable} value={value} onChange={(e) => setValue(e.target.value)} autoFocus/>
+                <input 
+                    className={"input-overlay-input" + (params.editable ? "" : " input-overlay-input-disabled")}
+                    type="text" placeholder={params.placeholder}
+                    disabled={!params.editable}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    maxLength={params.maxInputLength}
+                    autoFocus/>
                 <div className="input-overlay-button" onClick={onSubmit}>
                     { params.buttonContent }
                 </div>
