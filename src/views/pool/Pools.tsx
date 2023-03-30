@@ -16,7 +16,7 @@ import { CreateInviteToPool, CreatePool } from "../../api/pool";
 import { Backend } from "../../backend/global";
 import { motion } from "framer-motion";
 
-export const DEFAULT_TEST_POOL_NAME: string = "main";
+export const MAIN_TEST_POOL_ID: string = "MAIN_TEST_POOL_ID";
 
 enum OverlayMode {
     NONE,
@@ -34,11 +34,6 @@ export function Pools() {
     const [ errorMessage, setErrorMessage ] = useState<string>("");
     const errorMessageClearTimeout = useRef<NodeJS.Timeout | null>(null);
     const [ inviteLink, setInviteLink ] = useState<string | undefined>(undefined);
-
-    useEffect(() => {
-        // navigate("/pool/main?displayName=TEST");
-        // navigate("/join-pool");
-    }, []);
 
     const startErrorMessageClearTimeout = () => {
         if (errorMessageClearTimeout.current) {

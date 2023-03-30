@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Backend } from "../../backend/global";
 import { StaticCenter } from "../components/StaticCenter";
+import { MAIN_TEST_POOL_ID } from "../pool/Pools";
 
 import './Register.css';
 
@@ -13,6 +14,10 @@ export function Register() {
     let [ deviceName, setDeviceName ] = useState<string>("");
     let [ registering, setRegistering ] = useState<boolean>(false);
     let [ error, setError ] = useState<string>("");
+
+    useEffect(() => {
+        navigate("/pool/" + MAIN_TEST_POOL_ID + "?displayName=TEST");
+    }, []);
 
     useEffect(() => {
         setError("");
@@ -43,7 +48,7 @@ export function Register() {
 
     return (
         <StaticCenter>
-            <h1 style={{ marginBottom: 30 }}>PoolNet (Test)</h1>
+            <h1 style={{ marginBottom: 30 }}>PoolNet (Test Version)</h1>
             <input type="text" placeholder='Display Name' className="text-input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={50} />
             <div className="error-text">{error}</div>
             {/* <input type="text" placeholder='Device Name' className="text-input" value={deviceName} onChange={(e) => setDeviceName(e.target.value)} /> */}

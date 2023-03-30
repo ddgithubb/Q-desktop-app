@@ -17,8 +17,13 @@ import DownloadIcon from '../../assets/download.png';
 
 import { PoolDisplayView } from './PoolDisplayView';
 import { poolAction } from '../../store/slices/pool.slice';
-import { PoolInfo, PoolUserInfo } from '../../types/sync_server.v1';
+import { DeviceType, PoolDeviceInfo, PoolInfo, PoolUserInfo } from '../../types/sync_server.v1';
 import { Backend } from '../../backend/global';
+import { MAIN_TEST_POOL_ID } from './Pools';
+import { AddPoolAction } from '../../store/slices/pool.action';
+import { profileAction, ProfileState } from '../../store/slices/profile.slice';
+import { invoke } from '@tauri-apps/api';
+import { nanoid } from '@reduxjs/toolkit';
 
 export enum PoolMessageMode {
     DISCONNECT,
@@ -50,19 +55,38 @@ export function PoolContainerView() {
         }
 
         // TEMP 
-        // let displayName = searchParams.get("displayName");
-        // if (displayName == null) {
-        //     navigate('/join-pool?poolid=' + poolID);
-        //     return;
-        // }
-        // let poolInfo: PoolInfo = {
-        //     poolId: poolID,
-        //     poolName: poolID,
-        //     users: []
-        // };
-        // store.dispatch(poolAction.setPools({
-        //     poolInfos: [poolInfo],
-        // }));
+        if (poolID == MAIN_TEST_POOL_ID) {
+            let displayName = searchParams.get("displayName");
+            if (displayName == null) {
+                navigate('/join-pool?poolid=' + poolID);
+                return;
+            }
+            let userInfo: PoolUserInfo = {
+                userId: "TEST_USER_ID",
+                displayName: displayName,
+                devices: [],
+            };
+            let deviceInfo: PoolDeviceInfo = {
+                deviceId: nanoid(21),
+                deviceName: "TEST_DEVICE_NAME",
+                deviceType: DeviceType.DESKTOP,
+            };
+            invoke('register_device', {
+                userInfo,
+                deviceInfo,
+            });
+
+            let poolInfo: PoolInfo = {
+                poolId: poolID,
+                poolName: poolID,
+                users: []
+            };
+            let addPoolAction: AddPoolAction = {
+                poolID: MAIN_TEST_POOL_ID,
+                poolInfo: poolInfo,
+            };
+            store.dispatch(poolAction.addPool(addPoolAction));
+        }
         // TEMP
 
         let pools = getStoreState().pool.pools;

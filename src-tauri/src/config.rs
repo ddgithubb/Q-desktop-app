@@ -57,6 +57,8 @@ pub const SYNC_SERVER_IS_SECURE: bool = false;
 pub const SYNC_SERVER_VERSION: &'static str = "v1";
 pub const SYNC_SERVER_DOMAIN: &'static str = if PRODUCTION_MODE { SYNC_SERVER_PROD_DOMAIN } else { SYNC_SERVER_TEST_DOMAIN };
 
+pub const MAIN_TEST_POOL_ID: &'static str = "MAIN_TEST_POOL_ID";
+
 fn sync_server_ws_host(path: String) -> String {
     format!("ws{}://{}{}",
         if SYNC_SERVER_IS_SECURE { "s" } else { "" },
@@ -78,7 +80,7 @@ pub fn sync_server_connect_endpoint(pool_id: &str, device_id: String) -> String 
         SYNC_SERVER_VERSION,
         pool_id,
         device_id,
-        if PRODUCTION_MODE { "false" } else { "true" }
+        if pool_id != MAIN_TEST_POOL_ID { "false" } else { "true" }
     ))
 }
 
