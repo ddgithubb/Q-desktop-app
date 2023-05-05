@@ -78,6 +78,7 @@ export enum PoolMessage_Type {
   MEDIA_OFFER = 3,
   FILE_REQUEST = 4,
   RETRACT_FILE_OFFER = 5,
+  /** RETRACT_FILE_REQUEST - FOLDER_OFFER = 7; */
   RETRACT_FILE_REQUEST = 6,
   UNRECOGNIZED = -1,
 }
@@ -204,6 +205,7 @@ export function poolDirectMessage_DirectTypeToJSON(object: PoolDirectMessage_Dir
 
 export interface PoolDirectMessage_LatestReplyData {
   latestMessages: PoolMessage[];
+  /** repeated PoolFolderInfo folders = 3; */
   fileSeeders: PoolFileSeeders[];
 }
 

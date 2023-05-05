@@ -8,6 +8,8 @@ fn main() -> Result<()> {
   config.type_attribute(".pool.v1.PoolFileInfo", "#[serde(rename_all = \"camelCase\")]");
   config.type_attribute(".pool.v1.PoolFileSeeders", "#[derive(serde::Serialize, serde::Deserialize)]");
   config.type_attribute(".pool.v1.PoolFileSeeders", "#[serde(rename_all = \"camelCase\")]");
+  config.type_attribute(".pool.v1.PoolFolderInfo", "#[derive(serde::Serialize, serde::Deserialize)]");
+  config.type_attribute(".pool.v1.PoolFolderInfo", "#[serde(rename_all = \"camelCase\")]");
   config.type_attribute(".pool.v1.PoolImageData", "#[derive(serde::Serialize, serde::Deserialize)]");
   config.type_attribute(".pool.v1.PoolImageData", "#[serde(rename_all = \"camelCase\")]");
   config.type_attribute(".pool.v1.PoolChunkRange", "#[derive(serde::Serialize, serde::Deserialize)]");

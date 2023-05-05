@@ -426,7 +426,7 @@ impl FileManager {
                 // }
 
                 if file_requests.len() == 0 {
-                    return;
+                    break;
                 }
 
                 let wrap = chunk_number >= total_chunks;
@@ -567,14 +567,14 @@ impl FileManager {
 
             if !read_ok {
                 self.retract_file_offer(file_id);
-                return;
+                break;
             }
 
             let send_chunk_info =
                 SendChunkInfo::create(file_id.clone(), chunk_number, buf, dest_node_ids, false);
 
             if self.send_chunk_tx.send(send_chunk_info).is_err() {
-                return;
+                break;
             }
 
             chunk_number += 1;

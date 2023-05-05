@@ -18,6 +18,12 @@ message PoolFileSeeders {
     repeated string seeder_node_ids = 2;
 }
 
+// message PoolFolderInfo {
+//     string folder_id = 1;
+//     string folder_name = 2;
+//     repeated PoolFileInfo file_offers = 3;
+// }
+
 message PoolImageData {
     uint32 width = 1;
     uint32 height = 2;
@@ -39,6 +45,7 @@ message PoolMessage {
         FILE_REQUEST = 4;
         RETRACT_FILE_OFFER = 5;
         RETRACT_FILE_REQUEST = 6;
+        // FOLDER_OFFER = 7;
     }
 
     string msg_id = 1;
@@ -53,10 +60,12 @@ message PoolMessage {
         FileRequestData file_request_data = 9;
         RetractFileOfferData retract_file_offer_data = 10;
         RetractFileRequestData retract_file_request_data = 11;
+        // PoolFolderInfo folder_offer_data = 12;
     }
 
     message NodeInfoData {
         repeated PoolFileInfo file_offers = 1; // append only
+        // repeated PoolFolderInfo folder_offers = 2; // append only
     }
 
     message TextData {
@@ -85,7 +94,6 @@ message PoolMessage {
     message RetractFileRequestData {
         string file_id = 1;
     }
-
 }
 
 message PoolDirectMessage {
@@ -103,6 +111,7 @@ message PoolDirectMessage {
     message LatestReplyData {
         repeated PoolMessage latest_messages = 1;
         repeated PoolFileSeeders file_seeders = 2;
+        // repeated PoolFolderInfo folders = 3;
     }
 
 }

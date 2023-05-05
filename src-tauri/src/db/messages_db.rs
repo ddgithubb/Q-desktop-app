@@ -169,7 +169,7 @@ impl MessagesDBInternal {
             chunk_number -= 1;
         }
 
-        println!("{:?}", msgs);
+        // println!("{:?}", msgs);
 
         msgs
     }
